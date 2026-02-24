@@ -29,7 +29,7 @@ export function PartsList({ selectedPart, onSelectPart, onHoverPart }: PartsList
   }, [filtered]);
 
   return (
-    <div className="absolute left-4 bottom-4 z-10 glass-panel p-3 w-56 max-h-64 flex flex-col gap-2">
+    <div className="absolute left-4 bottom-4 z-10 glass-panel p-3 w-52 max-h-48 flex flex-col gap-2">
       <div className="relative">
         <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
