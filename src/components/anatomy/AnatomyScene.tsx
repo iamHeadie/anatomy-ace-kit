@@ -1,6 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, ContactShadows, Grid } from "@react-three/drei";
 import { Suspense } from "react";
+import { SkeletonModel } from "./SkeletonModel";
 import { BoneModel } from "./BoneModel";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
 
@@ -11,7 +12,8 @@ interface AnatomySceneProps {
   onHoverPart: (id: string | null) => void;
 }
 
-function SkeletonGroup({ selectedPart, hoveredPart, onSelectPart, onHoverPart }: AnatomySceneProps) {
+// Fallback primitive skeleton when GLB fails to load
+function PrimitiveSkeletonGroup({ selectedPart, hoveredPart, onSelectPart, onHoverPart }: AnatomySceneProps) {
   return (
     <group position={[0, 0, 0]}>
       {skeletalParts.map((bone) => (
@@ -28,21 +30,39 @@ function SkeletonGroup({ selectedPart, hoveredPart, onSelectPart, onHoverPart }:
   );
 }
 
+function SceneContent({ selectedPart, hoveredPart, onSelectPart, onHoverPart }: AnatomySceneProps) {
+  return (
+    <SkeletonModel
+      selectedPart={selectedPart}
+      hoveredPart={hoveredPart}
+      onSelectPart={onSelectPart}
+      onHoverPart={onHoverPart}
+    />
+  );
+}
+
 export function AnatomyScene({ selectedPart, hoveredPart, onSelectPart, onHoverPart }: AnatomySceneProps) {
   return (
     <div className="w-full h-full">
       <Canvas
-        camera={{ position: [4, 2, 6], fov: 45 }}
+        camera={{ position: [0, 1, 5.5], fov: 50 }}
         dpr={[1, 2]}
         className="!bg-transparent"
       >
-        <Suspense fallback={null}>
-          <ambientLight intensity={0.4} />
-          <directionalLight position={[5, 8, 5]} intensity={0.8} castShadow />
+        <Suspense fallback={
+          <PrimitiveSkeletonGroup
+            selectedPart={selectedPart}
+            hoveredPart={hoveredPart}
+            onSelectPart={onSelectPart}
+            onHoverPart={onHoverPart}
+          />
+        }>
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[5, 8, 5]} intensity={0.9} castShadow />
           <directionalLight position={[-3, 4, -3]} intensity={0.3} />
           <pointLight position={[0, 2, 3]} intensity={0.4} color="#14b8a6" />
 
-          <SkeletonGroup
+          <SceneContent
             selectedPart={selectedPart}
             hoveredPart={hoveredPart}
             onSelectPart={onSelectPart}
