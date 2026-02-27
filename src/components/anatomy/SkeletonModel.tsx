@@ -101,10 +101,12 @@ export function SkeletonModel({
     return point.clone().sub(offset).divideScalar(scale);
   }, []);
 
-  // Highlight logic
+  // Highlight + GHOSTING logic
   useFrame(() => {
     if (!preparedScene) return;
     
+    const hasSelection = selectedPart !== null;
+
     preparedScene.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
       const mesh = child as THREE.Mesh;
@@ -118,19 +120,28 @@ export function SkeletonModel({
       const bone = findNearestBone(boneSpacePos);
 
       if (bone && selectedPart?.id === bone.id) {
+        // Selected bone — full brightness, teal glow
         mat.color.lerp(new THREE.Color("#14b8a6"), 0.12);
         mat.emissive.lerp(new THREE.Color("#14b8a6"), 0.12);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.5, 0.12);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.6, 0.12);
         mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1, 0.12);
       } else if (
         bone &&
         (hoveredPart === bone.id || (selectedPart?.connections.includes(bone.id) ?? false))
       ) {
+        // Connected/hovered — medium visibility
         mat.color.lerp(new THREE.Color("#5eead4"), 0.12);
         mat.emissive.lerp(new THREE.Color("#5eead4"), 0.12);
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.25, 0.12);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.95, 0.12);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, hasSelection ? 0.35 : 0.95, 0.12);
+      } else if (hasSelection) {
+        // GHOSTING — everything else fades to near-invisible
+        mat.color.lerp(original.clone().multiplyScalar(0.3), 0.08);
+        mat.emissive.lerp(new THREE.Color("#000000"), 0.08);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.08);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.08, 0.06);
       } else {
+        // Default — no selection
         mat.color.lerp(original, 0.08);
         mat.emissive.lerp(new THREE.Color("#000000"), 0.08);
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.08);
