@@ -1,6 +1,6 @@
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Environment, ContactShadows, Grid } from "@react-three/drei";
-import { Suspense } from "react";
+import { OrbitControls, Environment, ContactShadows, Grid, Bounds, useBounds } from "@react-three/drei";
+import { Suspense, useEffect, useRef } from "react";
 import { SkeletonModel } from "./SkeletonModel";
 import { BoneModel } from "./BoneModel";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
@@ -28,6 +28,25 @@ function PrimitiveSkeletonGroup({ selectedPart, hoveredPart, onSelectPart, onHov
       ))}
     </group>
   );
+}
+
+// Auto-framing component that responds to selectedPart changes
+function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
+  const bounds = useBounds();
+  const prevPartId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (selectedPart && selectedPart.id !== prevPartId.current) {
+      prevPartId.current = selectedPart.id;
+      // Refresh bounds to focus on the visible (selected) region
+      bounds.refresh().clip().fit();
+    } else if (!selectedPart && prevPartId.current) {
+      prevPartId.current = null;
+      bounds.refresh().clip().fit();
+    }
+  }, [selectedPart, bounds]);
+
+  return null;
 }
 
 function SceneContent({ selectedPart, hoveredPart, onSelectPart, onHoverPart }: AnatomySceneProps) {
@@ -62,12 +81,15 @@ export function AnatomyScene({ selectedPart, hoveredPart, onSelectPart, onHoverP
           <directionalLight position={[-3, 4, -3]} intensity={0.3} />
           <pointLight position={[0, 2, 3]} intensity={0.4} color="#14b8a6" />
 
-          <SceneContent
-            selectedPart={selectedPart}
-            hoveredPart={hoveredPart}
-            onSelectPart={onSelectPart}
-            onHoverPart={onHoverPart}
-          />
+          <Bounds fit clip observe margin={1.8}>
+            <SceneContent
+              selectedPart={selectedPart}
+              hoveredPart={hoveredPart}
+              onSelectPart={onSelectPart}
+              onHoverPart={onHoverPart}
+            />
+            <AutoFramer selectedPart={selectedPart} />
+          </Bounds>
 
           <ContactShadows
             position={[0, -2.85, 0]}
@@ -95,9 +117,10 @@ export function AnatomyScene({ selectedPart, hoveredPart, onSelectPart, onHoverP
             enablePan
             enableZoom
             enableRotate
-            minDistance={3}
+            minDistance={1}
             maxDistance={15}
             target={[0, 0.5, 0]}
+            makeDefault
           />
 
           <Environment preset="night" />
