@@ -67,6 +67,7 @@ export function AnatomyScene({ selectedPart, hoveredPart, onSelectPart, onHoverP
         camera={{ position: [0, 1, 5.5], fov: 50 }}
         dpr={[1, 2]}
         className="!bg-transparent"
+        style={{ touchAction: "none" }}
       >
         <Suspense fallback={
           <PrimitiveSkeletonGroup
