@@ -208,6 +208,8 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
   }
 
   const mnemonic = part ? regionMnemonics[part.region] : null;
+  // Unknown bones (not yet in boneMap) show a diagnostic helper instead of a quiz
+  const isUnknownBone = part?.id.startsWith("unknown-") ?? false;
 
   return (
     <AnimatePresence>
@@ -240,10 +242,18 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-white truncate">{part.name}</h2>
-                <p className="text-xs font-mono text-sky-400 italic truncate mt-0.5">
-                  {part.latinName}
-                </p>
+                <h2
+                  className={`text-base font-bold truncate ${
+                    isUnknownBone ? "text-red-400" : "text-white"
+                  }`}
+                >
+                  {part.name}
+                </h2>
+                {part.latinName && (
+                  <p className="text-xs font-mono text-sky-400 italic truncate mt-0.5">
+                    {part.latinName}
+                  </p>
+                )}
               </div>
               <button
                 onClick={onClose}
@@ -363,12 +373,30 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
               </div>
             )}
 
-            {/* Spotter Quiz */}
+            {/* Spotter Quiz — hidden for unmapped bones; show a mapping helper instead */}
             <div
               className="pt-3"
               style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
             >
-              {!showQuiz ? (
+              {isUnknownBone ? (
+                <div
+                  className="rounded-xl p-4 space-y-2"
+                  style={{
+                    background: "rgba(239,68,68,0.08)",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                  }}
+                >
+                  <p className="text-[10px] uppercase tracking-widest text-red-400/70">
+                    Unmapped bone
+                  </p>
+                  <p className="text-xs text-white/55 leading-relaxed">
+                    Open the browser console and look for the{" "}
+                    <span className="font-mono text-red-300">[Anatomy] Clicked mesh:</span>{" "}
+                    log. Copy the mesh name and add the correct mapping to{" "}
+                    <span className="font-mono text-red-300">src/data/modelRegistry.js</span>.
+                  </p>
+                </div>
+              ) : !showQuiz ? (
                 <button
                   onClick={() => setShowQuiz(true)}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sky-400 text-xs font-semibold transition-all"

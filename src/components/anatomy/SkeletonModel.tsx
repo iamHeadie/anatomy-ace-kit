@@ -3,6 +3,7 @@ import { useGLTF, Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
+import { boneMap } from "@/data/modelRegistry";
 
 interface SkeletonModelProps {
   selectedPart: BonePart | null;
@@ -13,35 +14,72 @@ interface SkeletonModelProps {
   onOpenDrawer: () => void;
 }
 
-// Selection highlight color — persistent "blue glow"
-const SELECTION_COLOR = new THREE.Color("#00bfff"); // deepskyblue
+// ── Visual constants ──────────────────────────────────────────────────────────
+// SELECTED: persistent "deep sky blue" glow as specified
+const SELECTION_COLOR    = new THREE.Color("#00bfff"); // deepskyblue
 const SELECTION_EMISSIVE = new THREE.Color("#0088cc");
-const HOVER_COLOR = new THREE.Color("#5eead4");
-const HOVER_EMISSIVE = new THREE.Color("#2dd4bf");
-const BLACK = new THREE.Color("#000000");
+// HOVERED / CONNECTED: subtle teal
+const HOVER_COLOR        = new THREE.Color("#5eead4");
+const HOVER_EMISSIVE     = new THREE.Color("#2dd4bf");
+const BLACK              = new THREE.Color("#000000");
 
-function findNearestBone(point: THREE.Vector3): BonePart | null {
-  let nearest: BonePart | null = null;
-  let minDist = Infinity;
+// ── Bone lookup helpers ───────────────────────────────────────────────────────
 
-  for (const bone of skeletalParts) {
-    const bonePos = new THREE.Vector3(bone.position[0], bone.position[1], bone.position[2]);
-    const dist = point.distanceTo(bonePos);
-    if (dist < minDist) {
-      minDist = dist;
-      nearest = bone;
-    }
+/**
+ * Resolve a GLB mesh name → BonePart using the boneMap registry.
+ * Returns the matched BonePart when found.
+ */
+function findBoneByMeshName(meshName: string): BonePart | null {
+  const boneId = (boneMap as Record<string, string>)[meshName];
+  if (!boneId) return null;
+  return skeletalParts.find((b) => b.id === boneId) ?? null;
+}
+
+/**
+ * Create a synthetic BonePart for meshes that are not yet in boneMap.
+ * The floating label will display "Unknown Bone — <MeshName>" so the developer
+ * can identify the mesh and add it to modelRegistry.js.
+ */
+function makeUnknownBone(meshName: string): BonePart {
+  return {
+    id: `unknown-${meshName}`,
+    name: `Unknown Bone — ${meshName}`,
+    latinName: "",
+    system: "Skeletal",
+    region: "Unidentified",
+    description: `Mesh "${meshName}" has not been mapped yet. Check the browser console for the log line "[Anatomy] Clicked mesh: …" and add the correct entry to src/data/modelRegistry.js.`,
+    position: [0, 0, 0],
+    scale: [1, 1, 1],
+    color: "#d4b896",
+    facts: [
+      `Internal GLB mesh name: "${meshName}"`,
+      "Add this mesh name → bone ID mapping to src/data/modelRegistry.js",
+    ],
+    connections: [],
+  };
+}
+
+/**
+ * Is this mesh the currently selected bone?
+ * Handles both mapped bones (via boneMap ID) and unmapped "unknown" bones
+ * (matched by raw mesh name stored in the synthetic ID).
+ */
+function isMeshSelected(meshName: string, selectedPart: BonePart | null): boolean {
+  if (!selectedPart) return false;
+  const mappedId = (boneMap as Record<string, string>)[meshName];
+  if (mappedId) return mappedId === selectedPart.id;
+  // Unknown bone — ID is `unknown-<meshName>`
+  if (selectedPart.id.startsWith("unknown-")) {
+    return meshName === selectedPart.id.slice("unknown-".length);
   }
-
-  // Forgiving hit radius — 5.0 units to handle small/mobile taps
-  return minDist < 5.0 ? nearest : null;
+  return false;
 }
 
 function triggerHaptic() {
   try {
     if (navigator.vibrate) navigator.vibrate(10);
   } catch {
-    // Haptic not supported, silent fail
+    // Haptic not supported
   }
 }
 
@@ -57,18 +95,21 @@ function FloatingBoneLabel({
   transformOffset: THREE.Vector3;
   onOpenDrawer: () => void;
 }) {
-  // Convert bone-data position (bone space) → world space
+  // Convert bone-data position (bone-data space) → world space
   const worldPos: [number, number, number] = [
     part.position[0] * transformScale + transformOffset.x,
     part.position[1] * transformScale + transformOffset.y + 0.55,
     part.position[2] * transformScale + transformOffset.z,
   ];
 
+  const isUnknown = part.id.startsWith("unknown-");
+
   return (
     <Html position={worldPos} center zIndexRange={[200, 100]}>
       <button
         onClick={(e) => {
           e.stopPropagation();
+          // Unknown bones still open the drawer — shows the "not mapped" helper text
           onOpenDrawer();
         }}
         style={{
@@ -78,9 +119,15 @@ function FloatingBoneLabel({
           fontSize: "11px",
           fontWeight: 700,
           color: "#fff",
-          background: "rgba(14, 165, 233, 0.88)",
-          border: "1.5px solid rgba(125, 211, 252, 0.65)",
-          boxShadow: "0 4px 18px rgba(14, 165, 233, 0.45), 0 0 0 3px rgba(14,165,233,0.15)",
+          background: isUnknown
+            ? "rgba(239, 68, 68, 0.75)"   // red tint for unknown bones
+            : "rgba(14, 165, 233, 0.88)",  // sky blue for known bones
+          border: isUnknown
+            ? "1.5px solid rgba(252, 165, 165, 0.65)"
+            : "1.5px solid rgba(125, 211, 252, 0.65)",
+          boxShadow: isUnknown
+            ? "0 4px 18px rgba(239, 68, 68, 0.35)"
+            : "0 4px 18px rgba(14, 165, 233, 0.45), 0 0 0 3px rgba(14,165,233,0.15)",
           backdropFilter: "blur(8px)",
           cursor: "pointer",
           whiteSpace: "nowrap",
@@ -88,13 +135,14 @@ function FloatingBoneLabel({
           transition: "background 0.15s, transform 0.1s",
           letterSpacing: "0.03em",
           lineHeight: 1.4,
+          maxWidth: "180px",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "rgba(14, 165, 233, 1)";
           (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.05)";
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "rgba(14, 165, 233, 0.88)";
           (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
         }}
       >
@@ -104,6 +152,7 @@ function FloatingBoneLabel({
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export function SkeletonModel({
   selectedPart,
   hoveredPart,
@@ -115,13 +164,15 @@ export function SkeletonModel({
   const { scene } = useGLTF("/models/skeleton.glb");
   const { gl, camera } = useThree();
   const groupRef = useRef<THREE.Group>(null);
-  const materialsRef = useRef<Map<string, { mat: THREE.MeshStandardMaterial; original: THREE.Color }>>(new Map());
+  const materialsRef = useRef<
+    Map<string, { mat: THREE.MeshStandardMaterial; original: THREE.Color; meshName: string }>
+  >(new Map());
   const transformRef = useRef({ scale: 1, offset: new THREE.Vector3() });
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const [ready, setReady] = useState(false);
 
-  // Stable refs for callbacks
+  // Stable callback refs — avoids stale closures in event listeners
   const onSelectPartRef = useRef(onSelectPart);
   const onHoverPartRef = useRef(onHoverPart);
   const onClearSelectionRef = useRef(onClearSelection);
@@ -129,10 +180,11 @@ export function SkeletonModel({
   useEffect(() => { onHoverPartRef.current = onHoverPart; }, [onHoverPart]);
   useEffect(() => { onClearSelectionRef.current = onClearSelection; }, [onClearSelection]);
 
-  // Prepare the scene once — deep traverse all child meshes
+  // ── Prepare the cloned scene once ──────────────────────────────────────────
   const preparedScene = useMemo(() => {
     const clone = scene.clone();
 
+    // Normalise height to 7 units so the skeleton fills the viewport
     const box = new THREE.Box3().setFromObject(clone);
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
@@ -156,46 +208,43 @@ export function SkeletonModel({
       ),
     };
 
-    // Deep traverse — assign interactive materials to EVERY mesh
-    const matsMap = new Map<string, { mat: THREE.MeshStandardMaterial; original: THREE.Color }>();
+    // Deep traverse — assign fresh interactive MeshStandardMaterial to every mesh
+    const matsMap = new Map<
+      string,
+      { mat: THREE.MeshStandardMaterial; original: THREE.Color; meshName: string }
+    >();
+
     clone.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const originalMat = mesh.material;
-        const baseColor =
-          originalMat instanceof THREE.MeshStandardMaterial
-            ? originalMat.color?.clone()
-            : new THREE.Color("#d4b896");
+      if (!(child as THREE.Mesh).isMesh) return;
+      const mesh = child as THREE.Mesh;
 
-        const mat = new THREE.MeshStandardMaterial({
-          color: baseColor,
-          roughness: 0.5,
-          metalness: 0.05,
-          transparent: true,
-          opacity: 0.9,
-          depthWrite: true,
-          side: THREE.DoubleSide,
-        });
-        const origColor = mat.color.clone();
-        mesh.material = mat;
-        matsMap.set(mesh.uuid, { mat, original: origColor });
-      }
+      const originalMat = mesh.material;
+      const baseColor =
+        originalMat instanceof THREE.MeshStandardMaterial
+          ? originalMat.color?.clone()
+          : new THREE.Color("#d4b896");
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: baseColor,
+        roughness: 0.5,
+        metalness: 0.05,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        side: THREE.DoubleSide,
+      });
+      const origColor = mat.color.clone();
+      mesh.material = mat;
+      matsMap.set(mesh.uuid, { mat, original: origColor, meshName: mesh.name });
     });
-    materialsRef.current = matsMap;
 
+    materialsRef.current = matsMap;
     return clone;
   }, [scene]);
 
-  useEffect(() => {
-    setReady(true);
-  }, [preparedScene]);
+  useEffect(() => { setReady(true); }, [preparedScene]);
 
-  const pointToBoneSpace = useCallback((point: THREE.Vector3) => {
-    const { scale, offset } = transformRef.current;
-    return point.clone().sub(offset).divideScalar(scale);
-  }, []);
-
-  // Collect ALL meshes recursively for raycasting — no bone ignored
+  // ── Collect ALL meshes for raycasting ──────────────────────────────────────
   const meshesRef = useRef<THREE.Mesh[]>([]);
   useEffect(() => {
     if (!preparedScene) return;
@@ -206,22 +255,66 @@ export function SkeletonModel({
     meshesRef.current = meshes;
   }, [preparedScene]);
 
-  // Manual raycasting — recursive intersection for full 206-bone coverage
-  const doRaycast = useCallback((clientX: number, clientY: number) => {
-    const rect = gl.domElement.getBoundingClientRect();
-    mouseRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-    raycasterRef.current.setFromCamera(mouseRef.current, camera);
-    const intersects = raycasterRef.current.intersectObjects(meshesRef.current, true);
-    if (intersects.length > 0) {
-      const hitPoint = intersects[0].point;
-      const boneSpace = pointToBoneSpace(hitPoint);
-      return findNearestBone(boneSpace);
-    }
-    return null;
-  }, [gl, camera, pointToBoneSpace]);
+  // ── Raycasting — mesh-name → boneMap lookup ────────────────────────────────
+  /**
+   * Cast a ray into the scene and resolve the hit mesh to a BonePart.
+   *
+   * Data Integrity flow:
+   *   1. Log the raw GLB mesh name so developers can populate boneMap.
+   *   2. If the mesh name IS in boneMap → return the correct BonePart.
+   *   3. If NOT in boneMap → return a synthetic "Unknown Bone" BonePart so the
+   *      label shows "Unknown Bone — <MeshName>" instead of silently failing.
+   */
+  const doRaycast = useCallback(
+    (clientX: number, clientY: number): BonePart | null => {
+      const rect = gl.domElement.getBoundingClientRect();
+      mouseRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycasterRef.current.setFromCamera(mouseRef.current, camera);
 
-  // Pointer/touch — gesture recognition (tap vs. drag)
+      const intersects = raycasterRef.current.intersectObjects(meshesRef.current, true);
+      if (intersects.length === 0) return null;
+
+      const hitObject = intersects[0].object;
+      const meshName = hitObject.name;
+
+      // ── Mesh Name Inspection (Data Integrity requirement) ──
+      // Logs exact GLB internal name so you can populate modelRegistry.js
+      console.log(`[Anatomy] Clicked mesh: "${meshName}"`, hitObject);
+
+      // ── boneMap validation ──
+      const bone = findBoneByMeshName(meshName);
+      if (bone) return bone; // ✅ Known bone — show correct name
+
+      // ⚠️ Unknown bone — show diagnostic label so developer can add mapping
+      if (meshName) return makeUnknownBone(meshName);
+
+      return null;
+    },
+    [gl, camera]
+  );
+
+  /**
+   * Lightweight hover raycast — only sets hoveredPart for mapped bones.
+   * Unknown bones don't get hover IDs (they'd have no matching entry in skeletalParts).
+   */
+  const doRaycastHover = useCallback(
+    (clientX: number, clientY: number): string | null => {
+      const rect = gl.domElement.getBoundingClientRect();
+      mouseRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycasterRef.current.setFromCamera(mouseRef.current, camera);
+
+      const intersects = raycasterRef.current.intersectObjects(meshesRef.current, true);
+      if (intersects.length === 0) return null;
+
+      const meshName = intersects[0].object.name;
+      return (boneMap as Record<string, string>)[meshName] ?? null;
+    },
+    [gl, camera]
+  );
+
+  // ── Pointer / touch event handlers ─────────────────────────────────────────
   useEffect(() => {
     const canvas = gl.domElement;
 
@@ -237,26 +330,25 @@ export function SkeletonModel({
       const dt = Date.now() - pointerDownTime;
       const dx = Math.abs(e.clientX - pointerDownPos.x);
       const dy = Math.abs(e.clientY - pointerDownPos.y);
-      // Forgiving tap detection — 400ms window, 15px move tolerance for mobile thumbs
+      // Tap recognition: ≤ 400 ms, ≤ 15 px movement (tolerant for mobile thumbs)
       if (dt < 400 && dx < 15 && dy < 15) {
         const bone = doRaycast(e.clientX, e.clientY);
         if (bone) {
           triggerHaptic();
           onSelectPartRef.current(bone);
         } else {
-          // Tapped void — clear blue highlight and hide all labels/drawers
+          // Tapped void — clear isolation mode, restore all opacities to 1.0
           onClearSelectionRef.current();
         }
       }
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      // Only track hover on non-touch devices
-      if (e.pointerType === "touch") return;
-      const bone = doRaycast(e.clientX, e.clientY);
-      if (bone) {
+      if (e.pointerType === "touch") return; // hover is desktop-only
+      const boneId = doRaycastHover(e.clientX, e.clientY);
+      if (boneId) {
         canvas.style.cursor = "pointer";
-        onHoverPartRef.current(bone.id);
+        onHoverPartRef.current(boneId);
       } else {
         canvas.style.cursor = "default";
         onHoverPartRef.current(null);
@@ -272,53 +364,65 @@ export function SkeletonModel({
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointermove", onPointerMove);
     };
-  }, [gl, doRaycast]);
+  }, [gl, doRaycast, doRaycastHover]);
 
-  // Persistent highlight + ghosting — smooth lerp each frame
+  // ── Per-frame material update — Isolation Mode ────────────────────────────
+  //
+  // Visual "Isolation Mode" rules:
+  //   SELECTED     → emissive: deepskyblue, emissiveIntensity: 2, opacity: 1.0
+  //   HOVERED/CONN → teal tint, partial opacity when selection active
+  //   GHOSTED      → opacity: 0.1, transparent: true (all non-selected meshes)
+  //   DEFAULT      → original color, opacity: 1.0, transparent: false
+  //
+  // Smooth lerp transitions are applied each frame to prevent jarring snaps.
   useFrame(() => {
     if (!preparedScene) return;
 
     const hasSelection = selectedPart !== null;
 
-    preparedScene.traverse((child) => {
-      if (!(child as THREE.Mesh).isMesh) return;
-      const mesh = child as THREE.Mesh;
-      const entry = materialsRef.current.get(mesh.uuid);
-      if (!entry) return;
+    materialsRef.current.forEach(({ mat, original, meshName }) => {
+      const isSelected = isMeshSelected(meshName, selectedPart);
+      const mappedBoneId = (boneMap as Record<string, string>)[meshName] ?? null;
+      const isHoveredOrConnected =
+        !isSelected &&
+        mappedBoneId !== null &&
+        (hoveredPart === mappedBoneId ||
+          (selectedPart?.connections.includes(mappedBoneId) ?? false));
 
-      const { mat, original } = entry;
-      const worldPos = new THREE.Vector3();
-      mesh.getWorldPosition(worldPos);
-      const boneSpacePos = pointToBoneSpace(worldPos);
-      const bone = findNearestBone(boneSpacePos);
-
-      if (bone && selectedPart?.id === bone.id) {
-        // ── SELECTED: Persistent deep sky blue — fast lerp for immediate feedback ──
+      if (isSelected) {
+        // ── SELECTED: Persistent deep sky blue glow — emissive intensity 2 ──
         mat.color.lerp(SELECTION_COLOR, 0.35);
         mat.emissive.lerp(SELECTION_EMISSIVE, 0.35);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.75, 0.35);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 2.0, 0.35);
         mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1.0, 0.35);
-      } else if (
-        bone &&
-        (hoveredPart === bone.id || (selectedPart?.connections.includes(bone.id) ?? false))
-      ) {
-        // ── HOVERED or CONNECTED: subtle teal ──
+        mat.transparent = false;
+        mat.depthWrite = true;
+      } else if (isHoveredOrConnected) {
+        // ── HOVERED / CONNECTED: subtle teal accent ──
         mat.color.lerp(HOVER_COLOR, 0.08);
         mat.emissive.lerp(HOVER_EMISSIVE, 0.08);
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.3, 0.08);
         mat.opacity = THREE.MathUtils.lerp(mat.opacity, hasSelection ? 0.45 : 0.95, 0.08);
+        mat.transparent = hasSelection;
+        mat.depthWrite = !hasSelection;
       } else if (hasSelection) {
-        // ── GHOSTED: visible but faded ──
+        // ── GHOSTED: opacity 0.1, transparent: true ──
+        // "Ghosts out" the rest of the body so the selected bone is in focus
         mat.color.lerp(original.clone().multiplyScalar(0.35), 0.05);
         mat.emissive.lerp(BLACK, 0.05);
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.05);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.15, 0.04);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.1, 0.04);
+        mat.transparent = true;
+        mat.depthWrite = false;
       } else {
-        // ── DEFAULT: neutral bone ──
+        // ── DEFAULT (no selection): full opacity 1.0, clear highlights ──
+        // "Tapping the empty void" resets everything here via the lerp
         mat.color.lerp(original, 0.06);
         mat.emissive.lerp(BLACK, 0.06);
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.06);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.9, 0.06);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1.0, 0.06);
+        mat.transparent = false;
+        mat.depthWrite = true;
       }
     });
   });
