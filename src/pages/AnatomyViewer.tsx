@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { AnatomyScene } from "@/components/anatomy/AnatomyScene";
-import { PartDetailPanel } from "@/components/anatomy/PartDetailPanel";
+import { ContextPanel } from "@/components/anatomy/ContextPanel";
 import { PartsList } from "@/components/anatomy/PartsList";
 import type { BonePart } from "@/data/skeletalSystem";
 import { List, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function AnatomyViewer() {
   const [selectedPart, setSelectedPart] = useState<BonePart | null>(null);
   const [hoveredPart, setHoveredPart] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
+  const isMobile = useIsMobile();
 
   return (
     <div className="relative w-full h-[calc(100vh-3.5rem)] bg-background overflow-hidden">
@@ -52,8 +54,8 @@ export default function AnatomyViewer() {
         )}
       </AnimatePresence>
 
-      {/* Detail panel (right side) */}
-      <PartDetailPanel
+      {/* Context Panel — right slide on desktop, bottom sheet on mobile */}
+      <ContextPanel
         part={selectedPart}
         onClose={() => setSelectedPart(null)}
         onSelectPart={setSelectedPart}

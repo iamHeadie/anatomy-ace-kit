@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, BookOpen, Link2, Sparkles, Brain, ArrowRight, CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { BonePart } from "@/data/skeletalSystem";
 import { skeletalParts } from "@/data/skeletalSystem";
 
@@ -138,6 +139,7 @@ function SpotterQuiz({ bone, onFinish }: { bone: BonePart; onFinish: () => void 
 export function ContextPanel({ part, onClose, onSelectPart }: ContextPanelProps) {
   const [showQuiz, setShowQuiz] = useState(false);
   const [flipped, setFlipped] = useState(false);
+  const isMobile = useIsMobile();
 
   // Reset quiz/flashcard state when bone changes
   const partId = part?.id;
@@ -150,16 +152,33 @@ export function ContextPanel({ part, onClose, onSelectPart }: ContextPanelProps)
 
   const mnemonic = part ? regionMnemonics[part.region] : null;
 
+  // Mobile: bottom sheet; Desktop: right side panel
+  const motionProps = isMobile
+    ? {
+        initial: { y: "100%", opacity: 0 },
+        animate: { y: 0, opacity: 1 },
+        exit: { y: "100%", opacity: 0 },
+        transition: { type: "spring", damping: 28, stiffness: 300 },
+        className: "fixed left-0 right-0 bottom-0 z-30 glass-panel overflow-y-auto scrollbar-thin flex flex-col max-h-[65vh] rounded-t-2xl",
+      }
+    : {
+        initial: { x: 340, opacity: 0 },
+        animate: { x: 0, opacity: 1 },
+        exit: { x: 340, opacity: 0 },
+        transition: { type: "spring", damping: 26, stiffness: 280 },
+        className: "fixed right-3 top-3 bottom-3 w-80 max-w-[85vw] z-30 glass-panel overflow-y-auto scrollbar-thin flex flex-col",
+      };
+
   return (
     <AnimatePresence>
       {part && (
-        <motion.div
-          initial={{ x: 340, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 340, opacity: 0 }}
-          transition={{ type: "spring", damping: 26, stiffness: 280 }}
-          className="fixed right-3 top-3 bottom-3 w-80 max-w-[85vw] z-30 glass-panel overflow-y-auto scrollbar-thin flex flex-col"
-        >
+        <motion.div {...motionProps}>
+          {/* Mobile drag handle */}
+          {isMobile && (
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+          )}
           {/* Header */}
           <div className="p-4 pb-3 border-b border-border/30">
             <div className="flex items-start justify-between gap-2">

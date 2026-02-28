@@ -11,6 +11,13 @@ interface SkeletonModelProps {
   onHoverPart: (id: string | null) => void;
 }
 
+// Selection highlight color — persistent "blue glow"
+const SELECTION_COLOR = new THREE.Color("#00bfff"); // deepskyblue
+const SELECTION_EMISSIVE = new THREE.Color("#0088cc");
+const HOVER_COLOR = new THREE.Color("#5eead4");
+const HOVER_EMISSIVE = new THREE.Color("#2dd4bf");
+const BLACK = new THREE.Color("#000000");
+
 function findNearestBone(point: THREE.Vector3): BonePart | null {
   let nearest: BonePart | null = null;
   let minDist = Infinity;
@@ -24,7 +31,16 @@ function findNearestBone(point: THREE.Vector3): BonePart | null {
     }
   }
 
-  return minDist < 4.0 ? nearest : null;
+  // Forgiving hit radius — 5.0 units to handle small/mobile taps
+  return minDist < 5.0 ? nearest : null;
+}
+
+function triggerHaptic() {
+  try {
+    if (navigator.vibrate) navigator.vibrate(10);
+  } catch {
+    // Haptic not supported, silent fail
+  }
 }
 
 export function SkeletonModel({
@@ -48,10 +64,10 @@ export function SkeletonModel({
   useEffect(() => { onSelectPartRef.current = onSelectPart; }, [onSelectPart]);
   useEffect(() => { onHoverPartRef.current = onHoverPart; }, [onHoverPart]);
 
-  // Prepare the scene once
+  // Prepare the scene once — deep traverse all child meshes
   const preparedScene = useMemo(() => {
     const clone = scene.clone();
-    
+
     const box = new THREE.Box3().setFromObject(clone);
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
@@ -75,22 +91,30 @@ export function SkeletonModel({
       ),
     };
 
+    // Deep traverse — assign interactive materials to EVERY mesh
     const matsMap = new Map<string, { mat: THREE.MeshStandardMaterial; original: THREE.Color }>();
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        if (mesh.material instanceof THREE.Material) {
-          const mat = new THREE.MeshStandardMaterial({
-            color: (mesh.material as THREE.MeshStandardMaterial).color?.clone() || new THREE.Color("#d4b896"),
-            roughness: 0.55,
-            metalness: 0.05,
-            transparent: true,
-            opacity: 0.9,
-          });
-          const origColor = mat.color.clone();
-          mesh.material = mat;
-          matsMap.set(mesh.uuid, { mat, original: origColor });
-        }
+        // Handle both single materials and material arrays
+        const originalMat = mesh.material;
+        const baseColor =
+          originalMat instanceof THREE.MeshStandardMaterial
+            ? originalMat.color?.clone()
+            : new THREE.Color("#d4b896");
+
+        const mat = new THREE.MeshStandardMaterial({
+          color: baseColor,
+          roughness: 0.5,
+          metalness: 0.05,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: true,
+          side: THREE.DoubleSide,
+        });
+        const origColor = mat.color.clone();
+        mesh.material = mat;
+        matsMap.set(mesh.uuid, { mat, original: origColor });
       }
     });
     materialsRef.current = matsMap;
@@ -107,7 +131,7 @@ export function SkeletonModel({
     return point.clone().sub(offset).divideScalar(scale);
   }, []);
 
-  // Collect all meshes for raycasting
+  // Collect ALL meshes recursively for raycasting — no bone ignored
   const meshesRef = useRef<THREE.Mesh[]>([]);
   useEffect(() => {
     if (!preparedScene) return;
@@ -118,13 +142,14 @@ export function SkeletonModel({
     meshesRef.current = meshes;
   }, [preparedScene]);
 
-  // Manual raycasting via native DOM events
+  // Manual raycasting — recursive intersection for full 206-bone coverage
   const doRaycast = useCallback((clientX: number, clientY: number) => {
     const rect = gl.domElement.getBoundingClientRect();
     mouseRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycasterRef.current.setFromCamera(mouseRef.current, camera);
-    const intersects = raycasterRef.current.intersectObjects(meshesRef.current, false);
+    // Intersect ALL meshes recursively
+    const intersects = raycasterRef.current.intersectObjects(meshesRef.current, true);
     if (intersects.length > 0) {
       const hitPoint = intersects[0].point;
       const boneSpace = pointToBoneSpace(hitPoint);
@@ -133,32 +158,35 @@ export function SkeletonModel({
     return null;
   }, [gl, camera, pointToBoneSpace]);
 
-  // Pointer/touch down => select
+  // Pointer/touch — gesture recognition (tap vs. drag)
   useEffect(() => {
     const canvas = gl.domElement;
-    
+
     let pointerDownTime = 0;
     let pointerDownPos = { x: 0, y: 0 };
-    
+
     const onPointerDown = (e: PointerEvent) => {
       pointerDownTime = Date.now();
       pointerDownPos = { x: e.clientX, y: e.clientY };
     };
-    
+
     const onPointerUp = (e: PointerEvent) => {
       const dt = Date.now() - pointerDownTime;
       const dx = Math.abs(e.clientX - pointerDownPos.x);
       const dy = Math.abs(e.clientY - pointerDownPos.y);
-      // Only select on tap/click (not drag for orbit)
-      if (dt < 300 && dx < 10 && dy < 10) {
+      // Forgiving tap detection — 400ms window, 15px move tolerance for mobile thumbs
+      if (dt < 400 && dx < 15 && dy < 15) {
         const bone = doRaycast(e.clientX, e.clientY);
         if (bone) {
+          triggerHaptic();
           onSelectPartRef.current(bone);
         }
       }
     };
-    
+
     const onPointerMove = (e: PointerEvent) => {
+      // Only track hover on non-touch devices
+      if (e.pointerType === "touch") return;
       const bone = doRaycast(e.clientX, e.clientY);
       if (bone) {
         canvas.style.cursor = "pointer";
@@ -180,10 +208,10 @@ export function SkeletonModel({
     };
   }, [gl, doRaycast]);
 
-  // Highlight + GHOSTING logic
+  // Persistent highlight + ghosting — smooth lerp each frame
   useFrame(() => {
     if (!preparedScene) return;
-    
+
     const hasSelection = selectedPart !== null;
 
     preparedScene.traverse((child) => {
@@ -198,29 +226,35 @@ export function SkeletonModel({
       const boneSpacePos = pointToBoneSpace(worldPos);
       const bone = findNearestBone(boneSpacePos);
 
+      const lerpSpeed = 0.08;
+
       if (bone && selectedPart?.id === bone.id) {
-        mat.color.lerp(new THREE.Color("#14b8a6"), 0.12);
-        mat.emissive.lerp(new THREE.Color("#14b8a6"), 0.12);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.6, 0.12);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1, 0.12);
+        // ── SELECTED: Persistent deep sky blue glow ──
+        mat.color.lerp(SELECTION_COLOR, lerpSpeed);
+        mat.emissive.lerp(SELECTION_EMISSIVE, lerpSpeed);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.7, lerpSpeed);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1, lerpSpeed);
       } else if (
         bone &&
         (hoveredPart === bone.id || (selectedPart?.connections.includes(bone.id) ?? false))
       ) {
-        mat.color.lerp(new THREE.Color("#5eead4"), 0.12);
-        mat.emissive.lerp(new THREE.Color("#5eead4"), 0.12);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.25, 0.12);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, hasSelection ? 0.35 : 0.95, 0.12);
+        // ── HOVERED or CONNECTED: subtle teal ──
+        mat.color.lerp(HOVER_COLOR, lerpSpeed);
+        mat.emissive.lerp(HOVER_EMISSIVE, lerpSpeed);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.3, lerpSpeed);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, hasSelection ? 0.45 : 0.95, lerpSpeed);
       } else if (hasSelection) {
-        mat.color.lerp(original.clone().multiplyScalar(0.3), 0.08);
-        mat.emissive.lerp(new THREE.Color("#000000"), 0.08);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.08);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.08, 0.06);
+        // ── GHOSTED: visible but faded ──
+        mat.color.lerp(original.clone().multiplyScalar(0.35), 0.05);
+        mat.emissive.lerp(BLACK, 0.05);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.05);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.15, 0.04);
       } else {
-        mat.color.lerp(original, 0.08);
-        mat.emissive.lerp(new THREE.Color("#000000"), 0.08);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.08);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.88, 0.08);
+        // ── DEFAULT: neutral bone ──
+        mat.color.lerp(original, 0.06);
+        mat.emissive.lerp(BLACK, 0.06);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.06);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.9, 0.06);
       }
     });
   });
