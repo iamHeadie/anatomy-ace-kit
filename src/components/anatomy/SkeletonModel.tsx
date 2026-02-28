@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { useGLTF } from "@react-three/drei";
+import { useGLTF, Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
@@ -9,6 +9,8 @@ interface SkeletonModelProps {
   hoveredPart: string | null;
   onSelectPart: (part: BonePart) => void;
   onHoverPart: (id: string | null) => void;
+  onClearSelection: () => void;
+  onOpenDrawer: () => void;
 }
 
 // Selection highlight color — persistent "blue glow"
@@ -43,11 +45,72 @@ function triggerHaptic() {
   }
 }
 
+// ── Floating 3D label — Step 1 UI ────────────────────────────────────────────
+function FloatingBoneLabel({
+  part,
+  transformScale,
+  transformOffset,
+  onOpenDrawer,
+}: {
+  part: BonePart;
+  transformScale: number;
+  transformOffset: THREE.Vector3;
+  onOpenDrawer: () => void;
+}) {
+  // Convert bone-data position (bone space) → world space
+  const worldPos: [number, number, number] = [
+    part.position[0] * transformScale + transformOffset.x,
+    part.position[1] * transformScale + transformOffset.y + 0.55,
+    part.position[2] * transformScale + transformOffset.z,
+  ];
+
+  return (
+    <Html position={worldPos} center zIndexRange={[200, 100]}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenDrawer();
+        }}
+        style={{
+          pointerEvents: "auto",
+          padding: "4px 12px",
+          borderRadius: "999px",
+          fontSize: "11px",
+          fontWeight: 700,
+          color: "#fff",
+          background: "rgba(14, 165, 233, 0.88)",
+          border: "1.5px solid rgba(125, 211, 252, 0.65)",
+          boxShadow: "0 4px 18px rgba(14, 165, 233, 0.45), 0 0 0 3px rgba(14,165,233,0.15)",
+          backdropFilter: "blur(8px)",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          userSelect: "none",
+          transition: "background 0.15s, transform 0.1s",
+          letterSpacing: "0.03em",
+          lineHeight: 1.4,
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(14, 165, 233, 1)";
+          (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.05)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(14, 165, 233, 0.88)";
+          (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+        }}
+      >
+        {part.name}
+      </button>
+    </Html>
+  );
+}
+
 export function SkeletonModel({
   selectedPart,
   hoveredPart,
   onSelectPart,
   onHoverPart,
+  onClearSelection,
+  onOpenDrawer,
 }: SkeletonModelProps) {
   const { scene } = useGLTF("/models/skeleton.glb");
   const { gl, camera } = useThree();
@@ -61,8 +124,10 @@ export function SkeletonModel({
   // Stable refs for callbacks
   const onSelectPartRef = useRef(onSelectPart);
   const onHoverPartRef = useRef(onHoverPart);
+  const onClearSelectionRef = useRef(onClearSelection);
   useEffect(() => { onSelectPartRef.current = onSelectPart; }, [onSelectPart]);
   useEffect(() => { onHoverPartRef.current = onHoverPart; }, [onHoverPart]);
+  useEffect(() => { onClearSelectionRef.current = onClearSelection; }, [onClearSelection]);
 
   // Prepare the scene once — deep traverse all child meshes
   const preparedScene = useMemo(() => {
@@ -96,7 +161,6 @@ export function SkeletonModel({
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        // Handle both single materials and material arrays
         const originalMat = mesh.material;
         const baseColor =
           originalMat instanceof THREE.MeshStandardMaterial
@@ -148,7 +212,6 @@ export function SkeletonModel({
     mouseRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycasterRef.current.setFromCamera(mouseRef.current, camera);
-    // Intersect ALL meshes recursively
     const intersects = raycasterRef.current.intersectObjects(meshesRef.current, true);
     if (intersects.length > 0) {
       const hitPoint = intersects[0].point;
@@ -180,6 +243,9 @@ export function SkeletonModel({
         if (bone) {
           triggerHaptic();
           onSelectPartRef.current(bone);
+        } else {
+          // Tapped void — clear blue highlight and hide all labels/drawers
+          onClearSelectionRef.current();
         }
       }
     };
@@ -226,23 +292,21 @@ export function SkeletonModel({
       const boneSpacePos = pointToBoneSpace(worldPos);
       const bone = findNearestBone(boneSpacePos);
 
-      const lerpSpeed = 0.08;
-
       if (bone && selectedPart?.id === bone.id) {
-        // ── SELECTED: Persistent deep sky blue glow ──
-        mat.color.lerp(SELECTION_COLOR, lerpSpeed);
-        mat.emissive.lerp(SELECTION_EMISSIVE, lerpSpeed);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.7, lerpSpeed);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1, lerpSpeed);
+        // ── SELECTED: Persistent deep sky blue — fast lerp for immediate feedback ──
+        mat.color.lerp(SELECTION_COLOR, 0.35);
+        mat.emissive.lerp(SELECTION_EMISSIVE, 0.35);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.75, 0.35);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1.0, 0.35);
       } else if (
         bone &&
         (hoveredPart === bone.id || (selectedPart?.connections.includes(bone.id) ?? false))
       ) {
         // ── HOVERED or CONNECTED: subtle teal ──
-        mat.color.lerp(HOVER_COLOR, lerpSpeed);
-        mat.emissive.lerp(HOVER_EMISSIVE, lerpSpeed);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.3, lerpSpeed);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, hasSelection ? 0.45 : 0.95, lerpSpeed);
+        mat.color.lerp(HOVER_COLOR, 0.08);
+        mat.emissive.lerp(HOVER_EMISSIVE, 0.08);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.3, 0.08);
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, hasSelection ? 0.45 : 0.95, 0.08);
       } else if (hasSelection) {
         // ── GHOSTED: visible but faded ──
         mat.color.lerp(original.clone().multiplyScalar(0.35), 0.05);
@@ -264,6 +328,14 @@ export function SkeletonModel({
   return (
     <group ref={groupRef}>
       <primitive object={preparedScene} />
+      {selectedPart && (
+        <FloatingBoneLabel
+          part={selectedPart}
+          transformScale={transformRef.current.scale}
+          transformOffset={transformRef.current.offset}
+          onOpenDrawer={onOpenDrawer}
+        />
+      )}
     </group>
   );
 }

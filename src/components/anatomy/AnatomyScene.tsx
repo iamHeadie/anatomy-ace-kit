@@ -1,4 +1,4 @@
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Environment, ContactShadows, Grid, Bounds, useBounds } from "@react-three/drei";
 import { Suspense, useEffect, useRef } from "react";
 import { SkeletonModel } from "./SkeletonModel";
@@ -10,10 +10,18 @@ interface AnatomySceneProps {
   hoveredPart: string | null;
   onSelectPart: (part: BonePart) => void;
   onHoverPart: (id: string | null) => void;
+  onClearSelection: () => void;
+  onOpenDrawer: () => void;
+  drawerOpen: boolean;
 }
 
 // Fallback primitive skeleton when GLB fails to load
-function PrimitiveSkeletonGroup({ selectedPart, hoveredPart, onSelectPart, onHoverPart }: AnatomySceneProps) {
+function PrimitiveSkeletonGroup({
+  selectedPart,
+  hoveredPart,
+  onSelectPart,
+  onHoverPart,
+}: Pick<AnatomySceneProps, "selectedPart" | "hoveredPart" | "onSelectPart" | "onHoverPart">) {
   return (
     <group position={[0, 0, 0]}>
       {skeletalParts.map((bone) => (
@@ -30,6 +38,36 @@ function PrimitiveSkeletonGroup({ selectedPart, hoveredPart, onSelectPart, onHov
   );
 }
 
+// Camera controller — shifts orbit target when drawer opens so the selected
+// bone stays visible in the upper viewport above the bottom sheet
+function CameraController({
+  drawerOpen,
+  selectedPart,
+}: {
+  drawerOpen: boolean;
+  selectedPart: BonePart | null;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controls = useThree((state) => state.controls) as any;
+  const prevDrawerOpen = useRef(false);
+
+  useEffect(() => {
+    if (!controls || drawerOpen === prevDrawerOpen.current) return;
+    prevDrawerOpen.current = drawerOpen;
+
+    if (drawerOpen && selectedPart) {
+      // Shift target downward so the skeleton appears in the upper half
+      // (the bottom 62 vh is now occupied by the info drawer)
+      controls.target.set(0, -0.8, 0);
+    } else {
+      controls.target.set(0, 0.5, 0);
+    }
+    controls.update();
+  }, [drawerOpen, selectedPart, controls]);
+
+  return null;
+}
+
 // Auto-framing component that responds to selectedPart changes
 function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
   const bounds = useBounds();
@@ -38,7 +76,6 @@ function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
   useEffect(() => {
     if (selectedPart && selectedPart.id !== prevPartId.current) {
       prevPartId.current = selectedPart.id;
-      // Refresh bounds to focus on the visible (selected) region
       bounds.refresh().clip().fit();
     } else if (!selectedPart && prevPartId.current) {
       prevPartId.current = null;
@@ -49,18 +86,35 @@ function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
   return null;
 }
 
-function SceneContent({ selectedPart, hoveredPart, onSelectPart, onHoverPart }: AnatomySceneProps) {
+function SceneContent({
+  selectedPart,
+  hoveredPart,
+  onSelectPart,
+  onHoverPart,
+  onClearSelection,
+  onOpenDrawer,
+}: Omit<AnatomySceneProps, "drawerOpen">) {
   return (
     <SkeletonModel
       selectedPart={selectedPart}
       hoveredPart={hoveredPart}
       onSelectPart={onSelectPart}
       onHoverPart={onHoverPart}
+      onClearSelection={onClearSelection}
+      onOpenDrawer={onOpenDrawer}
     />
   );
 }
 
-export function AnatomyScene({ selectedPart, hoveredPart, onSelectPart, onHoverPart }: AnatomySceneProps) {
+export function AnatomyScene({
+  selectedPart,
+  hoveredPart,
+  onSelectPart,
+  onHoverPart,
+  onClearSelection,
+  onOpenDrawer,
+  drawerOpen,
+}: AnatomySceneProps) {
   return (
     <div className="w-full h-full">
       <Canvas
@@ -69,14 +123,16 @@ export function AnatomyScene({ selectedPart, hoveredPart, onSelectPart, onHoverP
         className="!bg-transparent"
         style={{ touchAction: "none" }}
       >
-        <Suspense fallback={
-          <PrimitiveSkeletonGroup
-            selectedPart={selectedPart}
-            hoveredPart={hoveredPart}
-            onSelectPart={onSelectPart}
-            onHoverPart={onHoverPart}
-          />
-        }>
+        <Suspense
+          fallback={
+            <PrimitiveSkeletonGroup
+              selectedPart={selectedPart}
+              hoveredPart={hoveredPart}
+              onSelectPart={onSelectPart}
+              onHoverPart={onHoverPart}
+            />
+          }
+        >
           <ambientLight intensity={0.5} />
           <directionalLight position={[5, 8, 5]} intensity={0.9} castShadow />
           <directionalLight position={[-3, 4, -3]} intensity={0.3} />
@@ -88,6 +144,8 @@ export function AnatomyScene({ selectedPart, hoveredPart, onSelectPart, onHoverP
               hoveredPart={hoveredPart}
               onSelectPart={onSelectPart}
               onHoverPart={onHoverPart}
+              onClearSelection={onClearSelection}
+              onOpenDrawer={onOpenDrawer}
             />
             <AutoFramer selectedPart={selectedPart} />
           </Bounds>
@@ -123,6 +181,9 @@ export function AnatomyScene({ selectedPart, hoveredPart, onSelectPart, onHoverP
             target={[0, 0.5, 0]}
             makeDefault
           />
+
+          {/* Shifts camera target when the study drawer opens */}
+          <CameraController drawerOpen={drawerOpen} selectedPart={selectedPart} />
 
           <Environment preset="night" />
         </Suspense>
