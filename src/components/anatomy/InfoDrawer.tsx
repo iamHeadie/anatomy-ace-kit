@@ -1,141 +1,104 @@
+/**
+ * InfoDrawer — "Shutter" Study Drawer (Step 2 UI)
+ *
+ * Occupies the bottom 30 % of the screen so the 3D skeleton stays fully
+ * visible in the top 70 %.  All content is scrollable within that height.
+ *
+ * Flow:
+ *   Step 1 – User taps a bone → blue isolation glow + floating pill label
+ *   Step 2 – User taps the pill label → this drawer slides up (isOpen=true)
+ */
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X,
-  BookOpen,
-  Link2,
-  Sparkles,
-  Brain,
-  ArrowRight,
-  CheckCircle,
-  XCircle,
-  RotateCcw,
+  X, BookOpen, Link2, Sparkles, Brain, ArrowRight,
+  CheckCircle, XCircle, RotateCcw,
 } from "lucide-react";
 import type { BonePart } from "@/data/skeletalSystem";
 import { skeletalParts } from "@/data/skeletalSystem";
 
 interface InfoDrawerProps {
   part: BonePart | null;
-  /** Controls visibility — only true after user taps the floating label */
   isOpen: boolean;
   onClose: () => void;
   onSelectPart: (part: BonePart) => void;
 }
 
-// ─── Mnemonics ───────────────────────────────────────────
+// ── Region mnemonics ──────────────────────────────────────────────────────────
 const regionMnemonics: Record<string, { mnemonic: string; hint: string }> = {
   "Wrist (Carpals)": {
     mnemonic: "Some Lovers Try Positions That They Can't Handle",
-    hint: "Scaphoid, Lunate, Triquetrum, Pisiform, Trapezium, Trapezoid, Capitate, Hamate",
+    hint: "Scaphoid · Lunate · Triquetrum · Pisiform · Trapezium · Trapezoid · Capitate · Hamate",
   },
-  Cranium: {
+  "Cranium": {
     mnemonic: "STEP OF 6",
-    hint: "Sphenoid, Temporal, Ethmoid, Parietal, Occipital, Frontal",
+    hint: "Sphenoid · Temporal · Ethmoid · Parietal · Occipital · Frontal",
   },
-  Face: {
+  "Face": {
     mnemonic: "My Mom's Zurich Pal Liked Nachos In Venice",
-    hint: "Mandible, Maxilla, Zygomatic, Palatine, Lacrimal, Nasal, Inferior concha, Vomer",
+    hint: "Mandible · Maxilla · Zygomatic · Palatine · Lacrimal · Nasal · Inferior concha · Vomer",
   },
   "Vertebral Column": {
     mnemonic: "Breakfast at 7, Lunch at 12, Dinner at 5",
-    hint: "7 Cervical, 12 Thoracic, 5 Lumbar vertebrae",
+    hint: "7 Cervical · 12 Thoracic · 5 Lumbar",
   },
   "Ankle (Tarsals)": {
     mnemonic: "Tiger Cubs Need MILC",
-    hint: "Talus, Calcaneus, Navicular, Medial/Intermediate/Lateral cuneiforms, Cuboid",
+    hint: "Talus · Calcaneus · Navicular · Medial/Intermediate/Lateral cuneiforms · Cuboid",
   },
 };
 
-// ─── Spotter Quiz ────────────────────────────────────────
-function generateSpotterQuestions(targetBone: BonePart) {
-  const allBones = skeletalParts.filter((b) => b.id !== targetBone.id);
+// ── Spotter Quiz ──────────────────────────────────────────────────────────────
+function buildQuestions(target: BonePart) {
+  const others = skeletalParts.filter((b) => b.id !== target.id);
+  const pick3  = () => others.sort(() => Math.random() - 0.5).slice(0, 3);
 
-  const q1 = (() => {
-    const distractors = allBones.sort(() => Math.random() - 0.5).slice(0, 3);
-    const options = [...distractors.map((d) => d.latinName), targetBone.latinName].sort(
-      () => Math.random() - 0.5
-    );
-    return {
-      question: `What is the Latin name of the ${targetBone.name}?`,
-      options,
-      answer: targetBone.latinName,
-    };
-  })();
-
-  const q2 = (() => {
-    const regions = [...new Set(skeletalParts.map((b) => b.region))].filter(
-      (r) => r !== targetBone.region
-    );
-    const wrongRegions = regions.sort(() => Math.random() - 0.5).slice(0, 3);
-    const options = [...wrongRegions, targetBone.region].sort(() => Math.random() - 0.5);
-    return {
-      question: `Which region does the ${targetBone.name} belong to?`,
-      options,
-      answer: targetBone.region,
-    };
-  })();
-
-  const q3 = (() => {
-    if (targetBone.facts.length === 0) {
-      const distractors = allBones.sort(() => Math.random() - 0.5).slice(0, 3);
-      const options = [...distractors.map((d) => d.name), targetBone.name].sort(
-        () => Math.random() - 0.5
-      );
-      return {
-        question: `Which bone is located in the ${targetBone.region}?`,
-        options,
-        answer: targetBone.name,
-      };
-    }
-    const fact = targetBone.facts[Math.floor(Math.random() * targetBone.facts.length)];
-    const distractors = allBones.sort(() => Math.random() - 0.5).slice(0, 3);
-    const options = [...distractors.map((d) => d.name), targetBone.name].sort(
-      () => Math.random() - 0.5
-    );
-    return { question: `Which bone: "${fact}"?`, options, answer: targetBone.name };
-  })();
-
-  return [q1, q2, q3];
+  return [
+    (() => {
+      const opts = [...pick3().map((d) => d.latinName), target.latinName].sort(() => Math.random() - 0.5);
+      return { q: `Latin name of the ${target.name}?`, opts, ans: target.latinName };
+    })(),
+    (() => {
+      const regions = [...new Set(skeletalParts.map((b) => b.region))].filter((r) => r !== target.region);
+      const opts = [...regions.sort(() => Math.random() - 0.5).slice(0, 3), target.region].sort(() => Math.random() - 0.5);
+      return { q: `Which region contains the ${target.name}?`, opts, ans: target.region };
+    })(),
+    (() => {
+      const fact = target.facts[0] ?? `located in the ${target.region}`;
+      const opts = [...pick3().map((d) => d.name), target.name].sort(() => Math.random() - 0.5);
+      return { q: `Which bone: "${fact}"?`, opts, ans: target.name };
+    })(),
+  ];
 }
 
 function SpotterQuiz({ bone, onFinish }: { bone: BonePart; onFinish: () => void }) {
-  const questions = useMemo(() => generateSpotterQuestions(bone), [bone]);
-  const [qIndex, setQIndex] = useState(0);
+  const qs = useMemo(() => buildQuestions(bone), [bone]);
+  const [idx, setIdx]         = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
-  const [score, setScore] = useState(0);
-  const [finished, setFinished] = useState(false);
+  const [score, setScore]     = useState(0);
+  const [done, setDone]       = useState(false);
 
-  const q = questions[qIndex];
+  const q       = qs[idx];
   const answered = selected !== null;
-  const correct = selected === q?.answer;
+  const correct  = selected === q?.ans;
 
-  const next = () => {
+  const advance = () => {
     if (correct) setScore((s) => s + 1);
-    if (qIndex >= questions.length - 1) {
-      setFinished(true);
-    } else {
-      setQIndex((i) => i + 1);
-      setSelected(null);
-    }
+    if (idx >= qs.length - 1) setDone(true);
+    else { setIdx((i) => i + 1); setSelected(null); }
   };
 
-  if (finished) {
-    const finalScore = score + (correct ? 1 : 0);
+  if (done) {
+    const final = score + (correct ? 1 : 0);
     return (
-      <div className="space-y-3 text-center py-4">
-        <p className="text-2xl font-bold text-white">
-          {finalScore}/{questions.length}
-        </p>
-        <p className="text-sm text-white/50">
-          {finalScore === questions.length
-            ? "Perfect!"
-            : finalScore >= 2
-            ? "Great job!"
-            : "Keep studying!"}
+      <div className="text-center py-3 space-y-1.5">
+        <p className="text-xl font-bold text-white">{final}/{qs.length}</p>
+        <p className="text-xs text-white/50">
+          {final === qs.length ? "Perfect!" : final >= 2 ? "Great job!" : "Keep studying!"}
         </p>
         <button
           onClick={onFinish}
-          className="text-xs px-4 py-2 rounded-lg bg-sky-500 text-white hover:bg-sky-400 transition-colors font-medium"
+          className="text-xs px-3 py-1.5 rounded-lg bg-sky-500 text-white hover:bg-sky-400 transition-colors font-medium mt-1"
         >
           Done
         </button>
@@ -144,38 +107,28 @@ function SpotterQuiz({ bone, onFinish }: { bone: BonePart; onFinish: () => void 
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-widest text-white/40">
-          Question {qIndex + 1}/3
-        </p>
-        <p className="text-xs font-mono text-sky-400">
-          {score}/{qIndex}
-        </p>
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] uppercase tracking-widest text-white/35">Q{idx + 1}/3</span>
+        <span className="text-[10px] font-mono text-sky-400">{score}/{idx}</span>
       </div>
-      <p className="text-sm font-medium text-white/90 leading-snug">{q.question}</p>
-      <div className="grid gap-1.5">
-        {q.options.map((opt) => {
-          let cls =
-            "bg-white/5 hover:bg-white/10 text-white/70 border-white/10";
-          if (answered && opt === q.answer)
-            cls = "bg-sky-500/20 text-sky-300 border-sky-500/40";
-          else if (answered && opt === selected && !correct)
-            cls = "bg-red-500/20 text-red-400 border-red-500/40";
-
+      <p className="text-xs font-medium text-white/85 leading-snug">{q.q}</p>
+      <div className="grid gap-1">
+        {q.opts.map((opt) => {
+          let cls = "bg-white/5 hover:bg-white/10 text-white/65 border-white/10";
+          if (answered && opt === q.ans)                   cls = "bg-sky-500/20 text-sky-300 border-sky-400/40";
+          else if (answered && opt === selected && !correct) cls = "bg-red-500/20 text-red-400 border-red-400/40";
           return (
             <button
               key={opt}
-              onClick={() => !answered && setSelected(opt)}
               disabled={answered}
-              className={`text-left px-3 py-2 rounded-lg border text-xs font-medium transition-all ${cls}`}
+              onClick={() => !answered && setSelected(opt)}
+              className={`text-left px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${cls}`}
             >
               <span className="flex items-center justify-between gap-2">
                 {opt}
-                {answered && opt === q.answer && <CheckCircle size={13} className="shrink-0" />}
-                {answered && opt === selected && !correct && (
-                  <XCircle size={13} className="shrink-0" />
-                )}
+                {answered && opt === q.ans  && <CheckCircle size={12} className="shrink-0" />}
+                {answered && opt === selected && !correct && <XCircle size={12} className="shrink-0" />}
               </span>
             </button>
           );
@@ -183,26 +136,25 @@ function SpotterQuiz({ bone, onFinish }: { bone: BonePart; onFinish: () => void 
       </div>
       {answered && (
         <button
-          onClick={next}
-          className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-sky-500 text-white text-xs font-semibold hover:bg-sky-400 transition-colors"
+          onClick={advance}
+          className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-sky-500 text-white text-[11px] font-semibold hover:bg-sky-400 transition-colors"
         >
-          {qIndex >= questions.length - 1 ? "Finish" : "Next"} <ArrowRight size={14} />
+          {idx >= qs.length - 1 ? "Finish" : "Next"} <ArrowRight size={13} />
         </button>
       )}
     </div>
   );
 }
 
-// ─── Info Drawer — "Shutter" Bottom Sheet (Step 2 UI) ───
+// ── Info Drawer ───────────────────────────────────────────────────────────────
 export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerProps) {
   const [showQuiz, setShowQuiz] = useState(false);
-  const [flipped, setFlipped] = useState(false);
+  const [flipped,  setFlipped]  = useState(false);
 
-  // Reset local state when the selected bone changes
-  const partId = part?.id;
-  const [lastPartId, setLastPartId] = useState<string | undefined>();
-  if (partId !== lastPartId) {
-    setLastPartId(partId);
+  // Reset local state whenever the selected bone changes
+  const [lastId, setLastId] = useState<string | undefined>();
+  if (part?.id !== lastId) {
+    setLastId(part?.id);
     setShowQuiz(false);
     setFlipped(false);
   }
@@ -220,97 +172,100 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
           transition={{ type: "spring", damping: 32, stiffness: 340 }}
           className="fixed left-0 right-0 bottom-0 z-40 flex flex-col rounded-t-2xl overflow-hidden"
           style={{
-            maxHeight: "62vh",
-            background: "rgba(8, 12, 26, 0.94)",
+            // ── 30 % of viewport height (spec requirement) ──────────────────
+            maxHeight: "30vh",
+            background: "rgba(7,10,22,0.95)",
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
             borderTop: "1px solid rgba(255,255,255,0.09)",
-            boxShadow: "0 -12px 48px rgba(0,0,0,0.65), 0 -1px 0 rgba(14,165,233,0.15)",
+            boxShadow: "0 -10px 48px rgba(0,0,0,0.7),0 -1px 0 rgba(14,165,233,0.18)",
           }}
         >
           {/* Drag handle */}
-          <div className="flex justify-center pt-3 pb-1 shrink-0">
-            <div className="w-10 h-1 rounded-full bg-white/20" />
+          <div className="flex justify-center pt-2 pb-0.5 shrink-0">
+            <div className="w-8 h-1 rounded-full bg-white/20" />
           </div>
 
-          {/* Header */}
+          {/* Compact header */}
           <div
-            className="px-5 pb-3 pt-2 shrink-0"
+            className="px-4 py-2 shrink-0 flex items-center justify-between gap-2"
             style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-base font-bold text-white truncate">{part.name}</h2>
-                <p className="text-xs font-mono text-sky-400 italic truncate mt-0.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <h2 className="text-sm font-bold text-white leading-tight truncate">{part.name}</h2>
+                <span className="text-[10px] font-mono text-sky-400 italic truncate shrink-0">
                   {part.latinName}
-                </p>
+                </span>
               </div>
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
-                aria-label="Close"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex gap-1 mt-1">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-400 font-semibold">
+                  {part.system}
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/50 font-medium">
+                  {part.region}
+                </span>
+              </div>
             </div>
-
-            <div className="flex gap-1.5 mt-2.5">
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 font-semibold">
-                {part.system}
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/50 font-medium">
-                {part.region}
-              </span>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-lg text-white/35 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+              aria-label="Close"
+            >
+              <X size={14} />
+            </button>
           </div>
 
-          {/* Scrollable body */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {/* Scrollable study content */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+
             {/* Mnemonic flashcard */}
             {mnemonic && (
               <div
                 onClick={() => setFlipped(!flipped)}
-                className="cursor-pointer rounded-xl p-4 transition-all"
+                className="cursor-pointer rounded-xl p-2.5 transition-all"
                 style={{
-                  background: "rgba(14, 165, 233, 0.09)",
+                  background: "rgba(14,165,233,0.09)",
                   border: "1px solid rgba(14,165,233,0.22)",
                 }}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <RotateCcw size={11} className="text-sky-400" />
-                  <p className="text-[10px] uppercase tracking-widest text-sky-400/70">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <RotateCcw size={9} className="text-sky-400" />
+                  <p className="text-[9px] uppercase tracking-widest text-sky-400/70">
                     Mnemonic — tap to flip
                   </p>
                 </div>
                 {!flipped ? (
-                  <p className="text-sm font-semibold text-sky-300 leading-relaxed">
+                  <p className="text-xs font-semibold text-sky-300 leading-snug">
                     &ldquo;{mnemonic.mnemonic}&rdquo;
                   </p>
                 ) : (
-                  <p className="text-xs text-white/55 leading-relaxed">{mnemonic.hint}</p>
+                  <p className="text-[10px] text-white/55 leading-snug">{mnemonic.hint}</p>
                 )}
               </div>
             )}
 
             {/* Description */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-white/70">
-                <BookOpen size={12} className="text-sky-400" />
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-white/60">
+                <BookOpen size={10} className="text-sky-400" />
                 Description
               </div>
-              <p className="text-xs text-white/48 leading-relaxed">{part.description}</p>
+              <p className="text-[11px] text-white/45 leading-relaxed line-clamp-3">
+                {part.description}
+              </p>
             </div>
 
             {/* Key Facts */}
             {part.facts.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-white/70">
-                  <Sparkles size={12} className="text-sky-400" />
+              <div className="space-y-1">
+                <div className="flex items-center gap-1 text-[10px] font-semibold text-white/60">
+                  <Sparkles size={10} className="text-sky-400" />
                   Key Facts
                 </div>
-                <ul className="space-y-1.5">
-                  {part.facts.map((fact, i) => (
-                    <li key={i} className="text-xs text-white/48 flex items-start gap-2">
+                <ul className="space-y-1">
+                  {part.facts.slice(0, 2).map((fact, i) => (
+                    <li key={i} className="text-[11px] text-white/45 flex items-start gap-1.5">
                       <span className="text-sky-400 mt-0.5 text-[8px] shrink-0">●</span>
                       {fact}
                     </li>
@@ -321,42 +276,32 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
 
             {/* Connected Parts */}
             {part.connections.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-white/70">
-                  <Link2 size={12} className="text-sky-400" />
-                  Connected Parts
+              <div className="space-y-1">
+                <div className="flex items-center gap-1 text-[10px] font-semibold text-white/60">
+                  <Link2 size={10} className="text-sky-400" />
+                  Connected
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {part.connections.slice(0, 8).map((connId) => {
-                    const connPart = skeletalParts.find((p) => p.id === connId);
-                    if (!connPart) return null;
+                <div className="flex flex-wrap gap-1">
+                  {part.connections.slice(0, 6).map((id) => {
+                    const cp = skeletalParts.find((p) => p.id === id);
+                    if (!cp) return null;
                     return (
                       <button
-                        key={connId}
-                        onClick={() => onSelectPart(connPart)}
-                        className="text-[10px] px-2 py-1 rounded-lg text-white/55 transition-colors"
+                        key={id}
+                        onClick={() => onSelectPart(cp)}
+                        className="text-[10px] px-2 py-0.5 rounded-md text-white/50 hover:text-sky-300 transition-colors"
                         style={{
-                          background: "rgba(255,255,255,0.07)",
+                          background: "rgba(255,255,255,0.06)",
                           border: "1px solid rgba(255,255,255,0.08)",
                         }}
-                        onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.background =
-                            "rgba(14,165,233,0.18)";
-                          (e.currentTarget as HTMLButtonElement).style.color = "#7dd3fc";
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.background =
-                            "rgba(255,255,255,0.07)";
-                          (e.currentTarget as HTMLButtonElement).style.color = "";
-                        }}
                       >
-                        {connPart.name}
+                        {cp.name}
                       </button>
                     );
                   })}
-                  {part.connections.length > 8 && (
-                    <span className="text-[10px] px-2 py-1 text-white/25">
-                      +{part.connections.length - 8} more
+                  {part.connections.length > 6 && (
+                    <span className="text-[10px] px-1 text-white/25">
+                      +{part.connections.length - 6}
                     </span>
                   )}
                 </div>
@@ -364,28 +309,17 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
             )}
 
             {/* Spotter Quiz */}
-            <div
-              className="pt-3"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-            >
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "10px" }}>
               {!showQuiz ? (
                 <button
                   onClick={() => setShowQuiz(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sky-400 text-xs font-semibold transition-all"
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sky-400 text-[11px] font-semibold transition-all"
                   style={{
                     background: "rgba(14,165,233,0.08)",
                     border: "1px solid rgba(14,165,233,0.22)",
                   }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                      "rgba(14,165,233,0.16)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                      "rgba(14,165,233,0.08)";
-                  }}
                 >
-                  <Brain size={14} />
+                  <Brain size={13} />
                   Spotter Quiz — 3 Questions
                 </button>
               ) : (
@@ -393,8 +327,8 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
               )}
             </div>
 
-            {/* Safe-area bottom padding */}
-            <div className="h-4" />
+            {/* Bottom safe-area pad */}
+            <div className="h-2" />
           </div>
         </motion.div>
       )}

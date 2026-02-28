@@ -1,3 +1,14 @@
+/**
+ * SkeletonModel — Isolation Study Mode
+ *
+ * Key design decisions:
+ *  1. Pre-computed mesh→bone map (built once during useMemo, O(1) per frame)
+ *     – eliminates the O(n×m) per-frame findNearestBone scan of the old code
+ *  2. Ghost effect: emissive:"blue" emissiveIntensity:2 on selected mesh;
+ *     transparent:true opacity:0.1 on all others (per spec)
+ *  3. Void-tap resets all bones to opacity:1 (per spec)
+ *  4. FloatingBoneLabel stays as Step-1 UI (tap → opens InfoDrawer)
+ */
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { useGLTF, Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -13,39 +24,33 @@ interface SkeletonModelProps {
   onOpenDrawer: () => void;
 }
 
-// Selection highlight color — persistent "blue glow"
-const SELECTION_COLOR = new THREE.Color("#00bfff"); // deepskyblue
-const SELECTION_EMISSIVE = new THREE.Color("#0088cc");
-const HOVER_COLOR = new THREE.Color("#5eead4");
-const HOVER_EMISSIVE = new THREE.Color("#2dd4bf");
-const BLACK = new THREE.Color("#000000");
+// ── Isolation Study Mode colours ──────────────────────────────────────────────
+const ISOLATION_BASE     = new THREE.Color("#00001a"); // near-black blue tint so emissive dominates
+const ISOLATION_EMISSIVE = new THREE.Color("#0000ff"); // spec: emissive "blue"
+const HOVER_EMISSIVE     = new THREE.Color("#00aaff"); // preview glow on desktop hover
+const BLACK              = new THREE.Color("#000000");
 
-function findNearestBone(point: THREE.Vector3): BonePart | null {
-  let nearest: BonePart | null = null;
-  let minDist = Infinity;
-
+/**
+ * Nearest-bone search with NO distance cap — used once at scene-prep time
+ * so every mesh is guaranteed to map to a BonePart (no null returns).
+ */
+function nearestBone(point: THREE.Vector3): BonePart {
+  let nearest = skeletalParts[0];
+  let best = Infinity;
   for (const bone of skeletalParts) {
-    const bonePos = new THREE.Vector3(bone.position[0], bone.position[1], bone.position[2]);
-    const dist = point.distanceTo(bonePos);
-    if (dist < minDist) {
-      minDist = dist;
-      nearest = bone;
-    }
+    const d = point.distanceTo(
+      new THREE.Vector3(bone.position[0], bone.position[1], bone.position[2])
+    );
+    if (d < best) { best = d; nearest = bone; }
   }
-
-  // Forgiving hit radius — 5.0 units to handle small/mobile taps
-  return minDist < 5.0 ? nearest : null;
+  return nearest;
 }
 
 function triggerHaptic() {
-  try {
-    if (navigator.vibrate) navigator.vibrate(10);
-  } catch {
-    // Haptic not supported, silent fail
-  }
+  try { if (navigator.vibrate) navigator.vibrate(10); } catch { /* silent */ }
 }
 
-// ── Floating 3D label — Step 1 UI ────────────────────────────────────────────
+// ── Floating 3D label (Step 1 UI) ────────────────────────────────────────────
 function FloatingBoneLabel({
   part,
   transformScale,
@@ -57,20 +62,17 @@ function FloatingBoneLabel({
   transformOffset: THREE.Vector3;
   onOpenDrawer: () => void;
 }) {
-  // Convert bone-data position (bone space) → world space
-  const worldPos: [number, number, number] = [
+  // Convert bone-data position (bone-space) → world-space
+  const wp: [number, number, number] = [
     part.position[0] * transformScale + transformOffset.x,
     part.position[1] * transformScale + transformOffset.y + 0.55,
     part.position[2] * transformScale + transformOffset.z,
   ];
 
   return (
-    <Html position={worldPos} center zIndexRange={[200, 100]}>
+    <Html position={wp} center zIndexRange={[200, 100]}>
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpenDrawer();
-        }}
+        onClick={(e) => { e.stopPropagation(); onOpenDrawer(); }}
         style={{
           pointerEvents: "auto",
           padding: "4px 12px",
@@ -78,24 +80,26 @@ function FloatingBoneLabel({
           fontSize: "11px",
           fontWeight: 700,
           color: "#fff",
-          background: "rgba(14, 165, 233, 0.88)",
-          border: "1.5px solid rgba(125, 211, 252, 0.65)",
-          boxShadow: "0 4px 18px rgba(14, 165, 233, 0.45), 0 0 0 3px rgba(14,165,233,0.15)",
+          background: "rgba(14,165,233,0.88)",
+          border: "1.5px solid rgba(125,211,252,0.65)",
+          boxShadow: "0 4px 18px rgba(14,165,233,0.45),0 0 0 3px rgba(14,165,233,0.15)",
           backdropFilter: "blur(8px)",
           cursor: "pointer",
           whiteSpace: "nowrap",
           userSelect: "none",
-          transition: "background 0.15s, transform 0.1s",
+          transition: "background 0.15s,transform 0.1s",
           letterSpacing: "0.03em",
           lineHeight: 1.4,
         }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "rgba(14, 165, 233, 1)";
-          (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.05)";
+          const b = e.currentTarget as HTMLButtonElement;
+          b.style.background = "rgba(14,165,233,1)";
+          b.style.transform  = "scale(1.05)";
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "rgba(14, 165, 233, 0.88)";
-          (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+          const b = e.currentTarget as HTMLButtonElement;
+          b.style.background = "rgba(14,165,233,0.88)";
+          b.style.transform  = "scale(1)";
         }}
       >
         {part.name}
@@ -104,6 +108,7 @@ function FloatingBoneLabel({
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export function SkeletonModel({
   selectedPart,
   hoveredPart,
@@ -112,213 +117,204 @@ export function SkeletonModel({
   onClearSelection,
   onOpenDrawer,
 }: SkeletonModelProps) {
-  const { scene } = useGLTF("/models/skeleton.glb");
+  const { scene }  = useGLTF("/models/skeleton.glb");
   const { gl, camera } = useThree();
-  const groupRef = useRef<THREE.Group>(null);
-  const materialsRef = useRef<Map<string, { mat: THREE.MeshStandardMaterial; original: THREE.Color }>>(new Map());
-  const transformRef = useRef({ scale: 1, offset: new THREE.Vector3() });
-  const raycasterRef = useRef(new THREE.Raycaster());
-  const mouseRef = useRef(new THREE.Vector2());
+
+  const groupRef       = useRef<THREE.Group>(null);
+  const materialsRef   = useRef<Map<string, { mat: THREE.MeshStandardMaterial; original: THREE.Color }>>(new Map());
+  /** Pre-computed: meshUUID → BonePart (built once, used O(1) per frame/click) */
+  const meshToBoneRef  = useRef<Map<string, BonePart>>(new Map());
+  const meshesRef      = useRef<THREE.Mesh[]>([]);
+  const transformRef   = useRef({ scale: 1, offset: new THREE.Vector3() });
+  const raycasterRef   = useRef(new THREE.Raycaster());
+  const mouseRef       = useRef(new THREE.Vector2());
   const [ready, setReady] = useState(false);
 
-  // Stable refs for callbacks
-  const onSelectPartRef = useRef(onSelectPart);
-  const onHoverPartRef = useRef(onHoverPart);
-  const onClearSelectionRef = useRef(onClearSelection);
-  useEffect(() => { onSelectPartRef.current = onSelectPart; }, [onSelectPart]);
-  useEffect(() => { onHoverPartRef.current = onHoverPart; }, [onHoverPart]);
-  useEffect(() => { onClearSelectionRef.current = onClearSelection; }, [onClearSelection]);
+  // Stable refs — callbacks never go stale inside event listeners
+  const onSelectRef = useRef(onSelectPart);
+  const onHoverRef  = useRef(onHoverPart);
+  const onClearRef  = useRef(onClearSelection);
+  useEffect(() => { onSelectRef.current = onSelectPart; }, [onSelectPart]);
+  useEffect(() => { onHoverRef.current  = onHoverPart;  }, [onHoverPart]);
+  useEffect(() => { onClearRef.current  = onClearSelection; }, [onClearSelection]);
 
-  // Prepare the scene once — deep traverse all child meshes
+  // ── Scene preparation ──────────────────────────────────────────────────────
+  // Run once per GLB load: clone, normalise scale, assign interactive
+  // MeshStandardMaterials, and pre-compute a mesh-UUID → BonePart map.
   const preparedScene = useMemo(() => {
     const clone = scene.clone();
 
-    const box = new THREE.Box3().setFromObject(clone);
+    // Auto-scale so the full skeleton is exactly 7 world-units tall
+    const box    = new THREE.Box3().setFromObject(clone);
     const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const targetHeight = 7;
-    const scaleFactor = targetHeight / maxDim;
+    const size   = box.getSize(new THREE.Vector3());
+    const sf     = 7 / Math.max(size.x, size.y, size.z); // scaleFactor
 
-    clone.scale.setScalar(scaleFactor);
-    clone.position.set(
-      -center.x * scaleFactor,
-      -center.y * scaleFactor + targetHeight / 2 - 2.85,
-      -center.z * scaleFactor
+    const offset = new THREE.Vector3(
+      -center.x * sf,
+      -center.y * sf + 3.5 - 2.85, // 3.5 = half of 7 (target height)
+      -center.z * sf
     );
 
-    transformRef.current = {
-      scale: scaleFactor,
-      offset: new THREE.Vector3(
-        -center.x * scaleFactor,
-        -center.y * scaleFactor + targetHeight / 2 - 2.85,
-        -center.z * scaleFactor
-      ),
-    };
+    clone.scale.setScalar(sf);
+    clone.position.copy(offset);
 
-    // Deep traverse — assign interactive materials to EVERY mesh
-    const matsMap = new Map<string, { mat: THREE.MeshStandardMaterial; original: THREE.Color }>();
+    // Force world-matrix computation so getWorldPosition() works on all children
+    clone.updateMatrixWorld(true);
+
+    transformRef.current = { scale: sf, offset };
+
+    const matsMap   = new Map<string, { mat: THREE.MeshStandardMaterial; original: THREE.Color }>();
+    const boneMap   = new Map<string, BonePart>();
+    const meshList: THREE.Mesh[] = [];
+
+    // Recursive traversal — covers every mesh in the GLB (all 206 bones)
     clone.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const originalMat = mesh.material;
-        const baseColor =
-          originalMat instanceof THREE.MeshStandardMaterial
-            ? originalMat.color?.clone()
-            : new THREE.Color("#d4b896");
+      if (!(child as THREE.Mesh).isMesh) return;
+      const mesh = child as THREE.Mesh;
 
-        const mat = new THREE.MeshStandardMaterial({
-          color: baseColor,
-          roughness: 0.5,
-          metalness: 0.05,
-          transparent: true,
-          opacity: 0.9,
-          depthWrite: true,
-          side: THREE.DoubleSide,
-        });
-        const origColor = mat.color.clone();
-        mesh.material = mat;
-        matsMap.set(mesh.uuid, { mat, original: origColor });
-      }
+      // Build a fresh interactive material per mesh
+      const srcMat  = mesh.material;
+      const baseCol = srcMat instanceof THREE.MeshStandardMaterial
+        ? srcMat.color.clone()
+        : new THREE.Color("#d4b896");
+
+      const mat = new THREE.MeshStandardMaterial({
+        color:       baseCol,
+        roughness:   0.5,
+        metalness:   0.05,
+        transparent: true,   // always transparent so opacity lerps work without needsUpdate
+        opacity:     1.0,    // spec reset target: opacity:1
+        depthWrite:  true,
+        side:        THREE.DoubleSide,
+      });
+
+      mesh.material = mat;
+      matsMap.set(mesh.uuid, { mat, original: baseCol.clone() });
+      meshList.push(mesh);
+
+      // Map this mesh to its nearest bone in data-space (no distance cap —
+      // every mesh must map to exactly one bone)
+      const wp = new THREE.Vector3();
+      mesh.getWorldPosition(wp);
+      const boneSpacePos = wp.clone().sub(offset).divideScalar(sf);
+      boneMap.set(mesh.uuid, nearestBone(boneSpacePos));
     });
-    materialsRef.current = matsMap;
+
+    materialsRef.current  = matsMap;
+    meshToBoneRef.current = boneMap;
+    meshesRef.current     = meshList;
 
     return clone;
   }, [scene]);
 
-  useEffect(() => {
-    setReady(true);
-  }, [preparedScene]);
+  useEffect(() => { setReady(true); }, [preparedScene]);
 
-  const pointToBoneSpace = useCallback((point: THREE.Vector3) => {
-    const { scale, offset } = transformRef.current;
-    return point.clone().sub(offset).divideScalar(scale);
-  }, []);
-
-  // Collect ALL meshes recursively for raycasting — no bone ignored
-  const meshesRef = useRef<THREE.Mesh[]>([]);
-  useEffect(() => {
-    if (!preparedScene) return;
-    const meshes: THREE.Mesh[] = [];
-    preparedScene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) meshes.push(child as THREE.Mesh);
-    });
-    meshesRef.current = meshes;
-  }, [preparedScene]);
-
-  // Manual raycasting — recursive intersection for full 206-bone coverage
-  const doRaycast = useCallback((clientX: number, clientY: number) => {
+  // ── Raycasting — O(1) lookup via pre-computed map ─────────────────────────
+  const doRaycast = useCallback((cx: number, cy: number): BonePart | null => {
     const rect = gl.domElement.getBoundingClientRect();
-    mouseRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    mouseRef.current.set(
+      ((cx - rect.left) / rect.width)  *  2 - 1,
+      ((cy - rect.top)  / rect.height) * -2 + 1
+    );
     raycasterRef.current.setFromCamera(mouseRef.current, camera);
-    const intersects = raycasterRef.current.intersectObjects(meshesRef.current, true);
-    if (intersects.length > 0) {
-      const hitPoint = intersects[0].point;
-      const boneSpace = pointToBoneSpace(hitPoint);
-      return findNearestBone(boneSpace);
-    }
-    return null;
-  }, [gl, camera, pointToBoneSpace]);
+    const hits = raycasterRef.current.intersectObjects(meshesRef.current, true);
+    if (!hits.length) return null;
+    return meshToBoneRef.current.get((hits[0].object as THREE.Mesh).uuid) ?? null;
+  }, [gl, camera]);
 
-  // Pointer/touch — gesture recognition (tap vs. drag)
+  // ── Pointer events: tap-vs-drag recognition ───────────────────────────────
   useEffect(() => {
     const canvas = gl.domElement;
+    let t0 = 0, x0 = 0, y0 = 0;
 
-    let pointerDownTime = 0;
-    let pointerDownPos = { x: 0, y: 0 };
-
-    const onPointerDown = (e: PointerEvent) => {
-      pointerDownTime = Date.now();
-      pointerDownPos = { x: e.clientX, y: e.clientY };
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      const dt = Date.now() - pointerDownTime;
-      const dx = Math.abs(e.clientX - pointerDownPos.x);
-      const dy = Math.abs(e.clientY - pointerDownPos.y);
-      // Forgiving tap detection — 400ms window, 15px move tolerance for mobile thumbs
-      if (dt < 400 && dx < 15 && dy < 15) {
+    const onDown = (e: PointerEvent) => { t0 = Date.now(); x0 = e.clientX; y0 = e.clientY; };
+    const onUp   = (e: PointerEvent) => {
+      // Forgiving tap: 400ms window, 15px radius — works on mobile thumbs
+      if (Date.now() - t0 < 400 && Math.hypot(e.clientX - x0, e.clientY - y0) < 15) {
         const bone = doRaycast(e.clientX, e.clientY);
-        if (bone) {
-          triggerHaptic();
-          onSelectPartRef.current(bone);
-        } else {
-          // Tapped void — clear blue highlight and hide all labels/drawers
-          onClearSelectionRef.current();
-        }
+        if (bone) { triggerHaptic(); onSelectRef.current(bone); }
+        else       { onClearRef.current(); }        // void tap → reset
       }
     };
-
-    const onPointerMove = (e: PointerEvent) => {
-      // Only track hover on non-touch devices
+    const onMove = (e: PointerEvent) => {
       if (e.pointerType === "touch") return;
       const bone = doRaycast(e.clientX, e.clientY);
-      if (bone) {
-        canvas.style.cursor = "pointer";
-        onHoverPartRef.current(bone.id);
-      } else {
-        canvas.style.cursor = "default";
-        onHoverPartRef.current(null);
-      }
+      canvas.style.cursor = bone ? "pointer" : "default";
+      onHoverRef.current(bone ? bone.id : null);
     };
 
-    canvas.addEventListener("pointerdown", onPointerDown);
-    canvas.addEventListener("pointerup", onPointerUp);
-    canvas.addEventListener("pointermove", onPointerMove);
-
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointerup",   onUp);
+    canvas.addEventListener("pointermove", onMove);
     return () => {
-      canvas.removeEventListener("pointerdown", onPointerDown);
-      canvas.removeEventListener("pointerup", onPointerUp);
-      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerdown", onDown);
+      canvas.removeEventListener("pointerup",   onUp);
+      canvas.removeEventListener("pointermove", onMove);
     };
   }, [gl, doRaycast]);
 
-  // Persistent highlight + ghosting — smooth lerp each frame
+  // ── Per-frame material updates: Isolation Study Mode ─────────────────────
+  //
+  // States (priority order):
+  //   ISOLATED  — clicked bone:  emissive "blue" intensity 2, opacity 1   (spec)
+  //   GHOST     — all others:    transparent:true  opacity 0.1             (spec)
+  //   HOVER     — no selection:  subtle blue preview
+  //   RESET     — no selection:  opacity 1, no emissive                    (spec)
   useFrame(() => {
     if (!preparedScene) return;
-
-    const hasSelection = selectedPart !== null;
+    const hasSel = selectedPart !== null;
 
     preparedScene.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
-      const mesh = child as THREE.Mesh;
-      const entry = materialsRef.current.get(mesh.uuid);
+      const entry = materialsRef.current.get((child as THREE.Mesh).uuid);
       if (!entry) return;
 
       const { mat, original } = entry;
-      const worldPos = new THREE.Vector3();
-      mesh.getWorldPosition(worldPos);
-      const boneSpacePos = pointToBoneSpace(worldPos);
-      const bone = findNearestBone(boneSpacePos);
+      const bone   = meshToBoneRef.current.get((child as THREE.Mesh).uuid);
+      const isSel  = !!bone && selectedPart?.id === bone.id;
+      const isConn = !!bone && (selectedPart?.connections.includes(bone.id) ?? false);
+      const isHov  = !!bone && hoveredPart === bone.id;
 
-      if (bone && selectedPart?.id === bone.id) {
-        // ── SELECTED: Persistent deep sky blue — fast lerp for immediate feedback ──
-        mat.color.lerp(SELECTION_COLOR, 0.35);
-        mat.emissive.lerp(SELECTION_EMISSIVE, 0.35);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.75, 0.35);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1.0, 0.35);
-      } else if (
-        bone &&
-        (hoveredPart === bone.id || (selectedPart?.connections.includes(bone.id) ?? false))
-      ) {
-        // ── HOVERED or CONNECTED: subtle teal ──
-        mat.color.lerp(HOVER_COLOR, 0.08);
-        mat.emissive.lerp(HOVER_EMISSIVE, 0.08);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.3, 0.08);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, hasSelection ? 0.45 : 0.95, 0.08);
-      } else if (hasSelection) {
-        // ── GHOSTED: visible but faded ──
-        mat.color.lerp(original.clone().multiplyScalar(0.35), 0.05);
-        mat.emissive.lerp(BLACK, 0.05);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.05);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.15, 0.04);
+      if (isSel) {
+        // ── ISOLATED ── emissive:"blue" emissiveIntensity:2  (per spec)
+        mat.color.lerp(ISOLATION_BASE, 0.4);
+        mat.emissive.lerp(ISOLATION_EMISSIVE, 0.4);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 2.0, 0.4);
+        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 1.0, 0.4);
+        mat.depthWrite        = true;
+
+      } else if (isHov && !hasSel) {
+        // ── HOVER PREVIEW (desktop, no selection active) ──
+        mat.color.lerp(original, 0.1);
+        mat.emissive.lerp(HOVER_EMISSIVE, 0.12);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.5, 0.12);
+        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 1.0, 0.12);
+        mat.depthWrite        = true;
+
+      } else if (isConn && hasSel) {
+        // ── CONNECTED: ghosted but slightly brighter than background ──
+        mat.color.lerp(original, 0.08);
+        mat.emissive.lerp(HOVER_EMISSIVE, 0.04);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.15, 0.04);
+        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 0.22, 0.08);
+        mat.depthWrite        = false;
+
+      } else if (hasSel) {
+        // ── GHOST ── transparent:true opacity:0.1  (per spec)
+        mat.color.lerp(original, 0.08);
+        mat.emissive.lerp(BLACK, 0.25);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.25);
+        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 0.1, 0.12);
+        mat.depthWrite        = false;
+
       } else {
-        // ── DEFAULT: neutral bone ──
-        mat.color.lerp(original, 0.06);
-        mat.emissive.lerp(BLACK, 0.06);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.06);
-        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.9, 0.06);
+        // ── RESET / DEFAULT ── opacity:1  (per spec on void-tap reset)
+        mat.color.lerp(original, 0.08);
+        mat.emissive.lerp(BLACK, 0.08);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.08);
+        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 1.0, 0.08);
+        mat.depthWrite        = true;
       }
     });
   });

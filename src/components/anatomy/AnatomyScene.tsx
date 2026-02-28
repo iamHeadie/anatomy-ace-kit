@@ -56,9 +56,10 @@ function CameraController({
     prevDrawerOpen.current = drawerOpen;
 
     if (drawerOpen && selectedPart) {
-      // Shift target downward so the skeleton appears in the upper half
-      // (the bottom 62 vh is now occupied by the info drawer)
-      controls.target.set(0, -0.8, 0);
+      // InfoDrawer occupies the bottom 30 % of the screen.
+      // Shifting the target downward pushes the skeleton into the clear top 70 %.
+      // (-0.4 ≈ half the proportional shift needed vs the old 62 vh drawer at -0.8)
+      controls.target.set(0, -0.4, 0);
     } else {
       controls.target.set(0, 0.5, 0);
     }
