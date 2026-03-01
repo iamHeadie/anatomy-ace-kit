@@ -65,23 +65,11 @@ function findBoneByMeshName(meshName: string): BonePart | null {
 // Used for merged-mesh models (e.g. skeleton.glb 'sub01' / 'sub02').
 //
 // The hit point from intersects[0].point is in world space.
-// We convert it to bone-data space using the normalisation transform applied
-// when the GLB was cloned, then find the BonePart with the smallest L2
-// distance from skeletalSystem.ts positions.
+// Bone positions in skeletalSystem.ts ARE ALSO in world space (they match the
+// normalised model coordinates: Y from -2.85 at the feet to +4.2 at the skull).
+// So we compare the world-space hit point DIRECTLY against bone positions.
 // ─────────────────────────────────────────────────────────────────────────────
-function pointToBoneSpace(
-  worldPoint: THREE.Vector3,
-  scale: number,
-  offset: THREE.Vector3
-): THREE.Vector3 {
-  return new THREE.Vector3(
-    (worldPoint.x - offset.x) / scale,
-    (worldPoint.y - offset.y) / scale,
-    (worldPoint.z - offset.z) / scale
-  );
-}
-
-function findNearestBone(boneSpacePoint: THREE.Vector3): BonePart | null {
+function findNearestBone(worldPoint: THREE.Vector3): BonePart | null {
   let nearest: BonePart | null = null;
   let minDist = Infinity;
 
@@ -89,9 +77,9 @@ function findNearestBone(boneSpacePoint: THREE.Vector3): BonePart | null {
     const [bx, by, bz] = bone.position;
     // Weight Y heavily — anatomy is naturally indexed by height
     const dist = Math.hypot(
-      (boneSpacePoint.x - bx) * 0.6,
-      (boneSpacePoint.y - by) * 1.2,
-      (boneSpacePoint.z - bz) * 0.6
+      (worldPoint.x - bx) * 0.6,
+      (worldPoint.y - by) * 1.2,
+      (worldPoint.z - bz) * 0.6
     );
     if (dist < minDist) {
       minDist = dist;
@@ -101,7 +89,7 @@ function findNearestBone(boneSpacePoint: THREE.Vector3): BonePart | null {
 
   if (nearest) {
     console.log(
-      `[Anatomy] Nearest bone: "${nearest.name}" (id: ${nearest.id}) | dist: ${minDist.toFixed(3)} | point: (${boneSpacePoint.x.toFixed(2)}, ${boneSpacePoint.y.toFixed(2)}, ${boneSpacePoint.z.toFixed(2)})`
+      `[Anatomy] Nearest bone: "${nearest.name}" (id: ${nearest.id}) | dist: ${minDist.toFixed(3)} | world: (${worldPoint.x.toFixed(2)}, ${worldPoint.y.toFixed(2)}, ${worldPoint.z.toFixed(2)}) | bone: (${nearest.position.join(", ")})`
     );
   }
 
@@ -314,10 +302,9 @@ export function SkeletonModel({
       }
 
       // ── Stage 2: position-based fallback ────────────────────────────────
-      // For merged-mesh models ('sub01', 'sub02') we use the 3-D hit point.
-      const { scale, offset } = transformRef.current;
-      const boneSpacePoint = pointToBoneSpace(hitPoint, scale, offset);
-      const nearestBone = findNearestBone(boneSpacePoint);
+      // For merged-mesh models ('sub01', 'sub02') we use the world-space hit point
+      // directly, since bone positions in skeletalSystem.ts are in world space.
+      const nearestBone = findNearestBone(hitPoint);
       if (nearestBone) {
         clickedMeshUUIDRef.current = hitMesh.uuid;
         return nearestBone;
@@ -344,10 +331,8 @@ export function SkeletonModel({
       const boneId = (boneMap as Record<string, string>)[meshName];
       if (boneId) return boneId;
 
-      // Stage 2
-      const { scale, offset } = transformRef.current;
-      const boneSpacePoint = pointToBoneSpace(hitPoint, scale, offset);
-      const bone = findNearestBone(boneSpacePoint);
+      // Stage 2 — use world-space hit point directly
+      const bone = findNearestBone(hitPoint);
       return bone?.id ?? null;
     },
     [castRay]
