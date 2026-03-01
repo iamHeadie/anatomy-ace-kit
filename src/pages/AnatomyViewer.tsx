@@ -21,6 +21,9 @@ export default function AnatomyViewer() {
         hoveredPart={hoveredPart}
         onSelectPart={setSelectedPart}
         onHoverPart={setHoveredPart}
+        onClearSelection={() => setSelectedPart(null)}
+        onOpenDrawer={() => {}}
+        drawerOpen={!!selectedPart}
       />
 
       {/* Toggle button for bones list */}

@@ -182,11 +182,20 @@ export const boneMap = {
   "Lacrimal_R":         "lacrimal-r",
   "Nasal_L":            "nasal-l",
   "Nasal_R":            "nasal-r",
-  "InferiorConcha_L":   "inferior-concha-l",
-  "Inferior_Concha_L":  "inferior-concha-l",
-  "InferiorConcha_R":   "inferior-concha-r",
-  "Inferior_Concha_R":  "inferior-concha-r",
+  "InferiorConcha_L":   "inf-nasal-concha-l",
+  "Inferior_Concha_L":  "inf-nasal-concha-l",
+  "InferiorConcha_R":   "inf-nasal-concha-r",
+  "Inferior_Concha_R":  "inf-nasal-concha-r",
   "Vomer":              "vomer",
+
+  // ── HYOID ──────────────────────────────────────────────────────────────────
+  "Hyoid":              "hyoid",
+  "Hyoid_Bone":         "hyoid",
+
+  // ── AUDITORY OSSICLES ──────────────────────────────────────────────────────
+  "Malleus_L":          "malleus-l",   "Malleus_R":          "malleus-r",
+  "Incus_L":            "incus-l",     "Incus_R":            "incus-r",
+  "Stapes_L":           "stapes-l",    "Stapes_R":           "stapes-r",
 
   // ── VERTEBRAL COLUMN ───────────────────────────────────────────────────────
   "Atlas":              "c1-atlas",
@@ -283,11 +292,79 @@ export const boneMap = {
   "Metacarpal_4_L": "metacarpal-4-l", "Metacarpal_4_R": "metacarpal-4-r",
   "Metacarpal_5_L": "metacarpal-5-l", "Metacarpal_5_R": "metacarpal-5-r",
 
+  // ── HAND PHALANGES (28) ────────────────────────────────────────────────────
+  // Thumb (2 per side)
+  "Thumb_Proximal_L":   "phalanx-proximal-thumb-l",
+  "Thumb_Proximal_R":   "phalanx-proximal-thumb-r",
+  "Thumb_Distal_L":     "phalanx-distal-thumb-l",
+  "Thumb_Distal_R":     "phalanx-distal-thumb-r",
+  "ProximalPhalanx_Thumb_L": "phalanx-proximal-thumb-l",
+  "ProximalPhalanx_Thumb_R": "phalanx-proximal-thumb-r",
+  "DistalPhalanx_Thumb_L":   "phalanx-distal-thumb-l",
+  "DistalPhalanx_Thumb_R":   "phalanx-distal-thumb-r",
+
+  // Index finger (3 per side)
+  "Index_Proximal_L":   "phalanx-proximal-index-finger-l",
+  "Index_Proximal_R":   "phalanx-proximal-index-finger-r",
+  "Index_Middle_L":     "phalanx-middle-index-finger-l",
+  "Index_Middle_R":     "phalanx-middle-index-finger-r",
+  "Index_Distal_L":     "phalanx-distal-index-finger-l",
+  "Index_Distal_R":     "phalanx-distal-index-finger-r",
+  "ProximalPhalanx_Index_L": "phalanx-proximal-index-finger-l",
+  "ProximalPhalanx_Index_R": "phalanx-proximal-index-finger-r",
+  "MiddlePhalanx_Index_L":   "phalanx-middle-index-finger-l",
+  "MiddlePhalanx_Index_R":   "phalanx-middle-index-finger-r",
+  "DistalPhalanx_Index_L":   "phalanx-distal-index-finger-l",
+  "DistalPhalanx_Index_R":   "phalanx-distal-index-finger-r",
+
+  // Middle finger (3 per side)
+  "Middle_Proximal_L":  "phalanx-proximal-middle-finger-l",
+  "Middle_Proximal_R":  "phalanx-proximal-middle-finger-r",
+  "Middle_Middle_L":    "phalanx-middle-middle-finger-l",
+  "Middle_Middle_R":    "phalanx-middle-middle-finger-r",
+  "Middle_Distal_L":    "phalanx-distal-middle-finger-l",
+  "Middle_Distal_R":    "phalanx-distal-middle-finger-r",
+  "ProximalPhalanx_Middle_L": "phalanx-proximal-middle-finger-l",
+  "ProximalPhalanx_Middle_R": "phalanx-proximal-middle-finger-r",
+  "MiddlePhalanx_Middle_L":   "phalanx-middle-middle-finger-l",
+  "MiddlePhalanx_Middle_R":   "phalanx-middle-middle-finger-r",
+  "DistalPhalanx_Middle_L":   "phalanx-distal-middle-finger-l",
+  "DistalPhalanx_Middle_R":   "phalanx-distal-middle-finger-r",
+
+  // Ring finger (3 per side)
+  "Ring_Proximal_L":    "phalanx-proximal-ring-finger-l",
+  "Ring_Proximal_R":    "phalanx-proximal-ring-finger-r",
+  "Ring_Middle_L":      "phalanx-middle-ring-finger-l",
+  "Ring_Middle_R":      "phalanx-middle-ring-finger-r",
+  "Ring_Distal_L":      "phalanx-distal-ring-finger-l",
+  "Ring_Distal_R":      "phalanx-distal-ring-finger-r",
+  "ProximalPhalanx_Ring_L": "phalanx-proximal-ring-finger-l",
+  "ProximalPhalanx_Ring_R": "phalanx-proximal-ring-finger-r",
+  "MiddlePhalanx_Ring_L":   "phalanx-middle-ring-finger-l",
+  "MiddlePhalanx_Ring_R":   "phalanx-middle-ring-finger-r",
+  "DistalPhalanx_Ring_L":   "phalanx-distal-ring-finger-l",
+  "DistalPhalanx_Ring_R":   "phalanx-distal-ring-finger-r",
+
+  // Little finger (3 per side)
+  "Little_Proximal_L":  "phalanx-proximal-little-finger-l",
+  "Little_Proximal_R":  "phalanx-proximal-little-finger-r",
+  "Little_Middle_L":    "phalanx-middle-little-finger-l",
+  "Little_Middle_R":    "phalanx-middle-little-finger-r",
+  "Little_Distal_L":    "phalanx-distal-little-finger-l",
+  "Little_Distal_R":    "phalanx-distal-little-finger-r",
+  "ProximalPhalanx_Little_L": "phalanx-proximal-little-finger-l",
+  "ProximalPhalanx_Little_R": "phalanx-proximal-little-finger-r",
+  "MiddlePhalanx_Little_L":   "phalanx-middle-little-finger-l",
+  "MiddlePhalanx_Little_R":   "phalanx-middle-little-finger-r",
+  "DistalPhalanx_Little_L":   "phalanx-distal-little-finger-l",
+  "DistalPhalanx_Little_R":   "phalanx-distal-little-finger-r",
+
   // ── PELVIS ────────────────────────────────────────────────────────────────
-  "Pelvis_L":     "pelvis-l",   "Pelvis_R":     "pelvis-r",
-  "Pelvis_Left":  "pelvis-l",   "Pelvis_Right":  "pelvis-r",
-  "HipBone_L":    "pelvis-l",   "HipBone_R":    "pelvis-r",
-  "Ilium_L":      "pelvis-l",   "Ilium_R":      "pelvis-r",
+  "Pelvis_L":     "hipbone-l",   "Pelvis_R":     "hipbone-r",
+  "Pelvis_Left":  "hipbone-l",   "Pelvis_Right":  "hipbone-r",
+  "HipBone_L":    "hipbone-l",   "HipBone_R":    "hipbone-r",
+  "Ilium_L":      "hipbone-l",   "Ilium_R":      "hipbone-r",
+  "Hip_L":        "hipbone-l",   "Hip_R":        "hipbone-r",
 
   // ── LEG ───────────────────────────────────────────────────────────────────
   "Femur_L":   "femur-l",    "Femur_R":   "femur-r",
@@ -299,11 +376,14 @@ export const boneMap = {
   "Calcaneus_L":    "calcaneus-l",   "Calcaneus_R":    "calcaneus-r",
   "Heel_L":         "calcaneus-l",   "Heel_R":         "calcaneus-r",
   "Talus_L":        "talus-l",       "Talus_R":        "talus-r",
-  "Navicular_L":    "navicular-l",   "Navicular_R":    "navicular-r",
+  "Navicular_L":    "navicular-foot-l", "Navicular_R":    "navicular-foot-r",
   "Cuboid_L":       "cuboid-l",      "Cuboid_R":       "cuboid-r",
-  "CuneiformMed_L": "cuneiform-med-l","CuneiformMed_R": "cuneiform-med-r",
-  "CuneiformInt_L": "cuneiform-int-l","CuneiformInt_R": "cuneiform-int-r",
-  "CuneiformLat_L": "cuneiform-lat-l","CuneiformLat_R": "cuneiform-lat-r",
+  "CuneiformMed_L": "medial-cuneiform-l",    "CuneiformMed_R": "medial-cuneiform-r",
+  "CuneiformInt_L": "intermediate-cuneiform-l","CuneiformInt_R": "intermediate-cuneiform-r",
+  "CuneiformLat_L": "lateral-cuneiform-l",    "CuneiformLat_R": "lateral-cuneiform-r",
+  "Medial_Cuneiform_L": "medial-cuneiform-l", "Medial_Cuneiform_R": "medial-cuneiform-r",
+  "Intermediate_Cuneiform_L": "intermediate-cuneiform-l", "Intermediate_Cuneiform_R": "intermediate-cuneiform-r",
+  "Lateral_Cuneiform_L": "lateral-cuneiform-l", "Lateral_Cuneiform_R": "lateral-cuneiform-r",
 
   // ── FOOT METATARSALS ──────────────────────────────────────────────────────
   "Metatarsal_1_L": "metatarsal-1-l", "Metatarsal_1_R": "metatarsal-1-r",
@@ -311,6 +391,49 @@ export const boneMap = {
   "Metatarsal_3_L": "metatarsal-3-l", "Metatarsal_3_R": "metatarsal-3-r",
   "Metatarsal_4_L": "metatarsal-4-l", "Metatarsal_4_R": "metatarsal-4-r",
   "Metatarsal_5_L": "metatarsal-5-l", "Metatarsal_5_R": "metatarsal-5-r",
+
+  // ── FOOT PHALANGES (28) ────────────────────────────────────────────────────
+  // Big toe (2 per side)
+  "BigToe_Proximal_L":  "phalanx-proximal-big-toe-l",
+  "BigToe_Proximal_R":  "phalanx-proximal-big-toe-r",
+  "BigToe_Distal_L":    "phalanx-distal-big-toe-l",
+  "BigToe_Distal_R":    "phalanx-distal-big-toe-r",
+  "Hallux_Proximal_L":  "phalanx-proximal-big-toe-l",
+  "Hallux_Proximal_R":  "phalanx-proximal-big-toe-r",
+  "Hallux_Distal_L":    "phalanx-distal-big-toe-l",
+  "Hallux_Distal_R":    "phalanx-distal-big-toe-r",
+
+  // 2nd toe (3 per side)
+  "Toe2_Proximal_L":    "phalanx-proximal-2nd-toe-l",
+  "Toe2_Proximal_R":    "phalanx-proximal-2nd-toe-r",
+  "Toe2_Middle_L":      "phalanx-middle-2nd-toe-l",
+  "Toe2_Middle_R":      "phalanx-middle-2nd-toe-r",
+  "Toe2_Distal_L":      "phalanx-distal-2nd-toe-l",
+  "Toe2_Distal_R":      "phalanx-distal-2nd-toe-r",
+
+  // 3rd toe (3 per side)
+  "Toe3_Proximal_L":    "phalanx-proximal-3rd-toe-l",
+  "Toe3_Proximal_R":    "phalanx-proximal-3rd-toe-r",
+  "Toe3_Middle_L":      "phalanx-middle-3rd-toe-l",
+  "Toe3_Middle_R":      "phalanx-middle-3rd-toe-r",
+  "Toe3_Distal_L":      "phalanx-distal-3rd-toe-l",
+  "Toe3_Distal_R":      "phalanx-distal-3rd-toe-r",
+
+  // 4th toe (3 per side)
+  "Toe4_Proximal_L":    "phalanx-proximal-4th-toe-l",
+  "Toe4_Proximal_R":    "phalanx-proximal-4th-toe-r",
+  "Toe4_Middle_L":      "phalanx-middle-4th-toe-l",
+  "Toe4_Middle_R":      "phalanx-middle-4th-toe-r",
+  "Toe4_Distal_L":      "phalanx-distal-4th-toe-l",
+  "Toe4_Distal_R":      "phalanx-distal-4th-toe-r",
+
+  // 5th toe (3 per side)
+  "Toe5_Proximal_L":    "phalanx-proximal-little-toe-l",
+  "Toe5_Proximal_R":    "phalanx-proximal-little-toe-r",
+  "Toe5_Middle_L":      "phalanx-middle-little-toe-l",
+  "Toe5_Middle_R":      "phalanx-middle-little-toe-r",
+  "Toe5_Distal_L":      "phalanx-distal-little-toe-l",
+  "Toe5_Distal_R":      "phalanx-distal-little-toe-r",
 };
 
 /**
