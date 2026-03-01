@@ -98,6 +98,13 @@ function findNearestBone(boneSpacePoint: THREE.Vector3): BonePart | null {
       nearest = bone;
     }
   }
+
+  if (nearest) {
+    console.log(
+      `[Anatomy] Nearest bone: "${nearest.name}" (id: ${nearest.id}) | dist: ${minDist.toFixed(3)} | point: (${boneSpacePoint.x.toFixed(2)}, ${boneSpacePoint.y.toFixed(2)}, ${boneSpacePoint.z.toFixed(2)})`
+    );
+  }
+
   return nearest;
 }
 
