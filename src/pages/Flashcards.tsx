@@ -49,7 +49,6 @@ export default function Flashcards() {
               </div>
             )}
             <p className="text-xs text-muted-foreground uppercase tracking-wider">What is this?</p>
-            <p className="text-2xl font-bold text-foreground">{card.latinName}</p>
             <p className="text-sm text-muted-foreground">{card.region} skeleton</p>
             <p className="text-xs text-primary animate-pulse-glow">Click to flip</p>
           </div>

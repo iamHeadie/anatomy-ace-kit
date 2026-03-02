@@ -12,11 +12,9 @@ const generateQuestion = (parts: typeof skeletalParts) => {
   return {
     question: isFactQuestion
       ? `Which bone has this fact: "${correct.facts[0]}"?`
-      : `What is the Latin name for the ${correct.name}?`,
-    correctAnswer: isFactQuestion ? correct.name : correct.latinName,
-    options: isFactQuestion
-      ? options.map((o) => o.name)
-      : options.map((o) => o.latinName),
+      : `Which bone is found in the ${correct.region} region?`,
+    correctAnswer: correct.name,
+    options: options.map((o) => o.name),
     correctId: correct.id,
   };
 };
