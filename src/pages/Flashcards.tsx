@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { skeletalParts } from "@/data/skeletalSystem";
-import { RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { getBoneImage } from "@/data/boneImages";
+import { RotateCcw, ChevronLeft, ChevronRight, ImageOff } from "lucide-react";
 
 export default function Flashcards() {
   const cards = useMemo(() => skeletalParts.sort(() => Math.random() - 0.5), []);
@@ -9,6 +10,7 @@ export default function Flashcards() {
   const [flipped, setFlipped] = useState(false);
 
   const card = cards[index];
+  const imageUrl = getBoneImage(card.id, card.region);
 
   const next = () => { setFlipped(false); setIndex((i) => (i + 1) % cards.length); };
   const prev = () => { setFlipped(false); setIndex((i) => (i - 1 + cards.length) % cards.length); };
@@ -31,23 +33,38 @@ export default function Flashcards() {
         >
           {/* Front */}
           <div
-            className="absolute inset-0 glass-panel flex flex-col items-center justify-center p-8 backface-hidden"
+            className="absolute inset-0 glass-panel flex flex-col items-center justify-center p-6 backface-hidden gap-3"
             style={{ backfaceVisibility: "hidden" }}
           >
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">What is this?</p>
-            <p className="text-3xl font-bold text-foreground">{card.latinName}</p>
-            <p className="text-sm text-muted-foreground mt-2">{card.region} skeleton</p>
-            <p className="text-xs text-primary mt-6 animate-pulse-glow">Click to flip</p>
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt={card.name}
+                className="h-28 w-auto object-contain rounded-lg opacity-90"
+                loading="lazy"
+              />
+            ) : (
+              <div className="h-28 w-28 rounded-lg bg-secondary/50 flex items-center justify-center">
+                <ImageOff size={28} className="text-muted-foreground/40" />
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">What is this?</p>
+            <p className="text-2xl font-bold text-foreground">{card.latinName}</p>
+            <p className="text-sm text-muted-foreground">{card.region} skeleton</p>
+            <p className="text-xs text-primary animate-pulse-glow">Click to flip</p>
           </div>
 
           {/* Back */}
           <div
-            className="absolute inset-0 glass-panel flex flex-col items-center justify-center p-8"
+            className="absolute inset-0 glass-panel flex flex-col items-center justify-center p-6 gap-2"
             style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
           >
-            <p className="text-xs text-primary uppercase tracking-wider mb-2">Answer</p>
+            {imageUrl && (
+              <img src={imageUrl} alt={card.name} className="h-20 w-auto object-contain rounded-lg opacity-80" />
+            )}
+            <p className="text-xs text-primary uppercase tracking-wider">Answer</p>
             <p className="text-2xl font-bold text-foreground">{card.name}</p>
-            <p className="text-sm text-muted-foreground mt-4 text-center leading-relaxed max-w-md">
+            <p className="text-sm text-muted-foreground text-center leading-relaxed max-w-md">
               {card.description}
             </p>
           </div>
