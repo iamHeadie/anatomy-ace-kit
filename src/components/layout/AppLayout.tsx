@@ -6,18 +6,33 @@ import {
   BookOpen,
   Layers,
   GraduationCap,
+  User,
 } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AnatomyScene } from "@/components/anatomy/AnatomyScene";
 import { InfoDrawer } from "@/components/anatomy/InfoDrawer";
 import type { BonePart } from "@/data/skeletalSystem";
 import { AnimatePresence, motion } from "framer-motion";
+import { useUserState } from "@/hooks/useUserState";
+import { getRank } from "@/data/rankSystem";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/quiz", label: "Quiz", icon: BookOpen },
   { to: "/flashcards", label: "Flashcards", icon: Layers },
+  { to: "/profile", label: "Profile", icon: User },
 ];
+
+function SidebarProfileCard() {
+  const { state } = useUserState();
+  const rank = getRank(state.xp);
+  return (
+    <NavLink to="/profile" end className="glass-panel p-2 rounded-xl flex flex-col items-center gap-1 mb-4 hover:bg-secondary/40 transition-colors" activeClassName="!ring-1 !ring-primary/30">
+      <span className={`text-lg ${rank.glowing ? "animate-diamond-glow" : ""}`}>{state.profile.avatar}</span>
+      <span className="text-[8px] font-medium truncate max-w-[40px]" style={{ color: rank.color }}>{rank.name}</span>
+    </NavLink>
+  );
+}
 
 export default function AppLayout() {
   const location = useLocation();
@@ -72,9 +87,7 @@ export default function AppLayout() {
 
       {/* Desktop sidebar */}
       <nav className="hidden md:flex fixed left-0 top-0 bottom-0 z-30 w-14 flex-col items-center py-5 gap-2">
-        <div className="glass-panel p-2 rounded-xl flex flex-col items-center gap-1 mb-4">
-          <GraduationCap size={20} className="text-primary" />
-        </div>
+        <SidebarProfileCard />
 
         <div className="glass-panel p-1.5 rounded-xl flex flex-col items-center gap-1 flex-1">
           <NavLink

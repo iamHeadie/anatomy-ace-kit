@@ -3,14 +3,23 @@ import { motion } from "framer-motion";
 import { skeletalParts } from "@/data/skeletalSystem";
 import { getBoneImage } from "@/data/boneImages";
 import { RotateCcw, ChevronLeft, ChevronRight, ImageOff } from "lucide-react";
+import { useUserState } from "@/hooks/useUserState";
 
 export default function Flashcards() {
   const cards = useMemo(() => skeletalParts.sort(() => Math.random() - 0.5), []);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const { recordFlashcardReview } = useUserState();
 
   const card = cards[index];
   const imageUrl = getBoneImage(card.id, card.region);
+
+  const handleFlip = () => {
+    if (!flipped) {
+      recordFlashcardReview(); // +25 XP when revealing answer
+    }
+    setFlipped(!flipped);
+  };
 
   const next = () => { setFlipped(false); setIndex((i) => (i + 1) % cards.length); };
   const prev = () => { setFlipped(false); setIndex((i) => (i - 1 + cards.length) % cards.length); };
@@ -24,7 +33,7 @@ export default function Flashcards() {
         </p>
       </div>
 
-      <div className="perspective-1000 cursor-pointer" onClick={() => setFlipped(!flipped)}>
+      <div className="perspective-1000 cursor-pointer" onClick={handleFlip}>
         <motion.div
           animate={{ rotateY: flipped ? 180 : 0 }}
           transition={{ duration: 0.5, type: "spring", damping: 20 }}
@@ -37,12 +46,7 @@ export default function Flashcards() {
             style={{ backfaceVisibility: "hidden" }}
           >
             {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={card.name}
-                className="h-28 w-auto object-contain rounded-lg opacity-90"
-                loading="lazy"
-              />
+              <img src={imageUrl} alt={card.name} className="h-28 w-auto object-contain rounded-lg opacity-90" loading="lazy" />
             ) : (
               <div className="h-28 w-28 rounded-lg bg-secondary/50 flex items-center justify-center">
                 <ImageOff size={28} className="text-muted-foreground/40" />
@@ -74,7 +78,7 @@ export default function Flashcards() {
         <button onClick={prev} className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors">
           <ChevronLeft size={20} />
         </button>
-        <button onClick={() => setFlipped(!flipped)} className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors">
+        <button onClick={handleFlip} className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors">
           <RotateCcw size={20} />
         </button>
         <button onClick={next} className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors">

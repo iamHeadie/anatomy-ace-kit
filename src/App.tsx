@@ -7,6 +7,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Quiz from "@/pages/Quiz";
 import Flashcards from "@/pages/Flashcards";
+import Profile from "@/pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
             <Route path="/viewer" element={<div />} />
             <Route path="/quiz" element={<Quiz />} />
             <Route path="/flashcards" element={<Flashcards />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
