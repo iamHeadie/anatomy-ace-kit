@@ -99,4 +99,19 @@
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
+
+  .animate-diamond-glow {
+    animation: diamond-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes diamond-glow {
+    0%, 100% {
+      filter: drop-shadow(0 0 4px hsl(168, 76%, 40%)) drop-shadow(0 0 12px hsl(280, 45%, 55%));
+      transform: scale(1);
+    }
+    50% {
+      filter: drop-shadow(0 0 8px hsl(168, 76%, 50%)) drop-shadow(0 0 20px hsl(280, 45%, 65%));
+      transform: scale(1.05);
+    }
+  }
 }

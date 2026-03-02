@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { skeletalParts } from "@/data/skeletalSystem";
 import { getBoneImage } from "@/data/boneImages";
 import { CheckCircle, XCircle, ArrowRight, Calendar } from "lucide-react";
+import { useUserState } from "@/hooks/useUserState";
 
 // Seed-based pseudo-random for daily consistency
 function seededRandom(seed: number) {
@@ -54,7 +55,6 @@ function generateQuestions(round: number): Question[] {
     const typeIndex = Math.floor(rng() * questionTypes.length);
     let type = questionTypes[typeIndex];
 
-    // Fallback if data is insufficient for chosen type
     if (type === "fact" && correct.facts.length === 0) type = "region";
     if (type === "connection" && correct.connections.length === 0) type = "region";
     if (type === "image" && !getBoneImage(correct.id, correct.region)) type = "description";
@@ -64,28 +64,13 @@ function generateQuestions(round: number): Question[] {
     switch (type) {
       case "fact": {
         const fact = correct.facts[Math.floor(rng() * correct.facts.length)];
-        questions.push({
-          type,
-          question: `Which bone has this fact: "${fact}"?`,
-          correctAnswer: correct.name,
-          options: allOptions,
-        });
+        questions.push({ type, question: `Which bone has this fact: "${fact}"?`, correctAnswer: correct.name, options: allOptions });
         break;
       }
       case "region": {
         questions.push({
-          type,
-          question: `Which of these bones belongs to the ${correct.region} region?`,
-          correctAnswer: correct.name,
-          options: shuffle(
-            [
-              correct.name,
-              ...shuffle(others.filter((o) => o.region !== correct.region), rng)
-                .slice(0, 3)
-                .map((o) => o.name),
-            ],
-            rng
-          ),
+          type, question: `Which of these bones belongs to the ${correct.region} region?`, correctAnswer: correct.name,
+          options: shuffle([correct.name, ...shuffle(others.filter((o) => o.region !== correct.region), rng).slice(0, 3).map((o) => o.name)], rng),
         });
         break;
       }
@@ -93,66 +78,32 @@ function generateQuestions(round: number): Question[] {
         const connId = correct.connections[Math.floor(rng() * correct.connections.length)];
         const connBone = skeletalParts.find((b) => b.id === connId);
         const connName = connBone ? connBone.name : connId;
-        questions.push({
-          type,
-          question: `Which bone connects to the ${connName}?`,
-          correctAnswer: correct.name,
-          options: allOptions,
-        });
+        questions.push({ type, question: `Which bone connects to the ${connName}?`, correctAnswer: correct.name, options: allOptions });
         break;
       }
       case "description": {
-        const snippet = correct.description.length > 80
-          ? correct.description.slice(0, 80) + "…"
-          : correct.description;
-        questions.push({
-          type,
-          question: `Which bone matches this description: "${snippet}"`,
-          correctAnswer: correct.name,
-          options: allOptions,
-        });
+        const snippet = correct.description.length > 80 ? correct.description.slice(0, 80) + "…" : correct.description;
+        questions.push({ type, question: `Which bone matches this description: "${snippet}"`, correctAnswer: correct.name, options: allOptions });
         break;
       }
       case "image": {
         const imgUrl = getBoneImage(correct.id, correct.region);
-        questions.push({
-          type,
-          question: "Which bone is shown in this image?",
-          correctAnswer: correct.name,
-          options: allOptions,
-          imageUrl: imgUrl || undefined,
-        });
+        questions.push({ type, question: "Which bone is shown in this image?", correctAnswer: correct.name, options: allOptions, imageUrl: imgUrl || undefined });
         break;
       }
       case "odd_one_out": {
         const sameRegion = shuffle(others.filter((o) => o.region === correct.region), rng).slice(0, 3);
         if (sameRegion.length < 3) {
-          // Fallback to region question
           questions.push({
-            type: "region",
-            question: `Which of these bones belongs to the ${correct.region} region?`,
-            correctAnswer: correct.name,
-            options: shuffle(
-              [correct.name, ...shuffle(others.filter((o) => o.region !== correct.region), rng).slice(0, 3).map((o) => o.name)],
-              rng
-            ),
+            type: "region", question: `Which of these bones belongs to the ${correct.region} region?`, correctAnswer: correct.name,
+            options: shuffle([correct.name, ...shuffle(others.filter((o) => o.region !== correct.region), rng).slice(0, 3).map((o) => o.name)], rng),
           });
         } else {
           const oddBone = shuffle(others.filter((o) => o.region !== correct.region), rng)[0];
           if (oddBone) {
-            questions.push({
-              type,
-              question: `Which bone does NOT belong to the ${correct.region} region?`,
-              correctAnswer: oddBone.name,
-              options: shuffle([...sameRegion.map((s) => s.name), oddBone.name], rng),
-            });
+            questions.push({ type, question: `Which bone does NOT belong to the ${correct.region} region?`, correctAnswer: oddBone.name, options: shuffle([...sameRegion.map((s) => s.name), oddBone.name], rng) });
           } else {
-            questions.push({
-              type: "region",
-              question: `Which of these bones belongs to the ${correct.region} region?`,
-              correctAnswer: correct.name,
-              options: allOptions,
-            });
+            questions.push({ type: "region", question: `Which of these bones belongs to the ${correct.region} region?`, correctAnswer: correct.name, options: allOptions });
           }
         }
         break;
@@ -170,10 +121,19 @@ export default function Quiz() {
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const [finished, setFinished] = useState(false);
+  const { recordBoneIdentified, recordQuizComplete } = useUserState();
 
   const current = questions[qIndex];
   const isCorrect = selected === current?.correctAnswer;
   const answered = selected !== null;
+
+  const handleSelect = (opt: string) => {
+    if (answered) return;
+    setSelected(opt);
+    if (opt === current.correctAnswer) {
+      recordBoneIdentified(); // +10 XP per correct answer
+    }
+  };
 
   const next = () => {
     const newScore = {
@@ -184,6 +144,7 @@ export default function Quiz() {
     setSelected(null);
 
     if (qIndex + 1 >= questions.length) {
+      recordQuizComplete();
       setFinished(true);
     } else {
       setQIndex((i) => i + 1);
@@ -212,6 +173,7 @@ export default function Quiz() {
           <p className="text-sm text-muted-foreground">
             {pct >= 80 ? "Excellent work! 🎉" : pct >= 50 ? "Good effort! Keep studying 💪" : "Keep practicing, you'll get there! 📚"}
           </p>
+          <p className="text-xs text-primary font-medium">+{score.correct * 10} XP earned!</p>
           <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
             <Calendar size={14} />
             <span>Come back tomorrow for new questions</span>
@@ -241,7 +203,6 @@ export default function Quiz() {
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
         <motion.div
           className="h-full bg-primary rounded-full"
@@ -265,11 +226,7 @@ export default function Quiz() {
             </span>
             <p className="text-lg font-medium text-foreground">{current.question}</p>
             {current.imageUrl && (
-              <img
-                src={current.imageUrl}
-                alt="Bone illustration"
-                className="h-32 w-auto object-contain rounded-lg mx-auto opacity-90"
-              />
+              <img src={current.imageUrl} alt="Bone illustration" className="h-32 w-auto object-contain rounded-lg mx-auto opacity-90" />
             )}
           </div>
 
@@ -284,7 +241,7 @@ export default function Quiz() {
               return (
                 <button
                   key={opt}
-                  onClick={() => !answered && setSelected(opt)}
+                  onClick={() => handleSelect(opt)}
                   disabled={answered}
                   className={`text-left px-4 py-3 rounded-lg border border-transparent text-sm font-medium transition-all ${style}`}
                 >
