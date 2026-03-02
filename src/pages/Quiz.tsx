@@ -39,8 +39,8 @@ interface Question {
 
 const DAILY_QUESTION_COUNT = 20;
 
-function generateDailyQuestions(): Question[] {
-  const seed = getDailySeed();
+function generateQuestions(round: number): Question[] {
+  const seed = getDailySeed() + round;
   const rng = seededRandom(seed);
   const parts = shuffle(skeletalParts, rng);
   const questions: Question[] = [];
@@ -164,7 +164,8 @@ function generateDailyQuestions(): Question[] {
 }
 
 export default function Quiz() {
-  const questions = useMemo(() => generateDailyQuestions(), []);
+  const [round, setRound] = useState(0);
+  const questions = useMemo(() => generateQuestions(round), [round]);
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
@@ -190,6 +191,7 @@ export default function Quiz() {
   };
 
   const restart = () => {
+    setRound((r) => r + 1);
     setQIndex(0);
     setSelected(null);
     setScore({ correct: 0, total: 0 });
