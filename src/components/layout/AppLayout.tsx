@@ -7,6 +7,7 @@ import {
   Layers,
   Settings,
   X,
+  Map,
 } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AnatomyScene } from "@/components/anatomy/AnatomyScene";
@@ -21,6 +22,7 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/quiz", label: "Quiz", icon: BookOpen },
   { to: "/flashcards", label: "Flashcards", icon: Layers },
+  { to: "/atlas", label: "Atlas", icon: Map },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

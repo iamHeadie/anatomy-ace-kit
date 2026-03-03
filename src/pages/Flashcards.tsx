@@ -1,17 +1,21 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { skeletalParts } from "@/data/skeletalSystem";
-import { RotateCcw, ChevronLeft, ChevronRight, Bone } from "lucide-react";
+import { RotateCcw, ChevronLeft, ChevronRight, Bone, ImageIcon, Box } from "lucide-react";
 import { useUserState } from "@/hooks/useUserState";
 import { BoneMiniViewer } from "@/components/anatomy/BoneMiniViewer";
+import { BoneAtlasImage } from "@/components/anatomy/BoneAtlasImage";
+import { getBoneAtlasStyle } from "@/data/boneStyles";
 
 export default function Flashcards() {
   const cards = useMemo(() => [...skeletalParts].sort(() => Math.random() - 0.5), []);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [viewMode, setViewMode] = useState<"3d" | "atlas">("atlas");
   const { recordFlashcardReview } = useUserState();
 
   const card = cards[index];
+  const hasAtlas = !!getBoneAtlasStyle(card.id);
 
   const handleFlip = () => {
     if (!flipped) {
@@ -50,19 +54,48 @@ export default function Flashcards() {
               backdropFilter: "blur(12px)",
             }}
           >
-            {/* 3D mini bone preview */}
+            {/* View-mode toggle */}
+            <div
+              className="absolute top-3 right-3 flex gap-1 z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setViewMode("atlas")}
+                title="Atlas image view"
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === "atlas" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <ImageIcon size={14} />
+              </button>
+              <button
+                onClick={() => setViewMode("3d")}
+                title="3D model view"
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === "3d" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Box size={14} />
+              </button>
+            </div>
+
+            {/* Bone preview */}
             <div className="w-full flex-1 min-h-0 max-h-44 rounded-xl overflow-hidden"
               style={{ background: "rgba(0,0,0,0.25)" }}
             >
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={card.id}
+                  key={`${card.id}-${viewMode}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   className="w-full h-full"
                 >
-                  <BoneMiniViewer boneId={card.id} className="w-full h-full" />
+                  {viewMode === "atlas" ? (
+                    <BoneAtlasImage
+                      boneId={card.id}
+                      boneName={hasAtlas ? undefined : card.name}
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <BoneMiniViewer boneId={card.id} className="w-full h-full" />
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>

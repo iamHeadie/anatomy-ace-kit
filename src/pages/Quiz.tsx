@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { skeletalParts } from "@/data/skeletalSystem";
 import { getBoneImage } from "@/data/boneImages";
+import { getBoneAtlasStyle } from "@/data/boneStyles";
+import { BoneAtlasImage } from "@/components/anatomy/BoneAtlasImage";
 import { CheckCircle, XCircle, ArrowRight, Calendar } from "lucide-react";
 import { useUserState } from "@/hooks/useUserState";
 
@@ -36,6 +38,9 @@ interface Question {
   correctAnswer: string;
   options: string[];
   imageUrl?: string;
+  /** boneId for atlas sprite rendering; takes priority over imageUrl when present */
+  atlasBoneId?: string;
+  atlasBoneName?: string;
 }
 
 const DAILY_QUESTION_COUNT = 20;
@@ -57,7 +62,7 @@ function generateQuestions(round: number): Question[] {
 
     if (type === "fact" && correct.facts.length === 0) type = "region";
     if (type === "connection" && correct.connections.length === 0) type = "region";
-    if (type === "image" && !getBoneImage(correct.id, correct.region)) type = "description";
+    if (type === "image" && !getBoneImage(correct.id, correct.region) && !getBoneAtlasStyle(correct.id)) type = "description";
 
     const allOptions = shuffle([...wrongPool.map((w) => w.name), correct.name], rng);
 
@@ -88,7 +93,16 @@ function generateQuestions(round: number): Question[] {
       }
       case "image": {
         const imgUrl = getBoneImage(correct.id, correct.region);
-        questions.push({ type, question: "Which bone is shown in this image?", correctAnswer: correct.name, options: allOptions, imageUrl: imgUrl || undefined });
+        const hasAtlas = !!getBoneAtlasStyle(correct.id);
+        questions.push({
+          type,
+          question: "Which bone is shown in this image?",
+          correctAnswer: correct.name,
+          options: allOptions,
+          imageUrl: imgUrl || undefined,
+          atlasBoneId: hasAtlas ? correct.id : undefined,
+          atlasBoneName: correct.name,
+        });
         break;
       }
       case "odd_one_out": {
@@ -225,9 +239,15 @@ export default function Quiz() {
               {current.type.replace("_", " ")}
             </span>
             <p className="text-lg font-medium text-foreground">{current.question}</p>
-            {current.imageUrl && (
+            {current.atlasBoneId ? (
+              <BoneAtlasImage
+                boneId={current.atlasBoneId}
+                boneName={current.atlasBoneName}
+                className="h-40 w-full"
+              />
+            ) : current.imageUrl ? (
               <img src={current.imageUrl} alt="Bone illustration" className="h-32 w-auto object-contain rounded-lg mx-auto opacity-90" />
-            )}
+            ) : null}
           </div>
 
           <div className="grid gap-3">
