@@ -114,7 +114,7 @@ function CommandCenter() {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="fixed left-0 top-0 bottom-0 z-[110] w-[80vw] max-w-72 flex flex-col"
+            className="fixed left-0 top-0 bottom-0 z-[110] w-[80vw] max-w-72 flex flex-col overflow-hidden"
             style={{
               background: "rgba(8, 14, 26, 0.80)",
               backdropFilter: "blur(28px) saturate(160%)",
@@ -131,12 +131,12 @@ function CommandCenter() {
               <X size={17} />
             </button>
 
-            {/* ── Top: User Profile ── */}
-            <div className="pt-10 px-5 pb-5 border-b border-white/[0.07]">
-              <div className="flex items-center gap-4">
+            {/* ── Section 1: Profile Header — flex-shrink-0 prevents nav overlap ── */}
+            <div className="flex-shrink-0 pt-10 px-5 pb-6 min-h-[200px] border-b border-white/10">
+              <div className="flex items-start gap-4">
                 {/* Large avatar with rank ring */}
                 <span
-                  className="flex items-center justify-center w-16 h-16 rounded-full flex-shrink-0"
+                  className="flex items-center justify-center w-16 h-16 rounded-full flex-shrink-0 mt-1"
                   style={{
                     background: "rgba(255,255,255,0.04)",
                     boxShadow: `0 0 0 2.5px ${rank.color}, 0 0 16px ${rank.color}50`,
@@ -156,7 +156,7 @@ function CommandCenter() {
                     {state.profile.name}
                   </p>
                   {state.profile.department && (
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-snug mt-0.5">
                       {state.profile.department}
                     </p>
                   )}
@@ -166,7 +166,7 @@ function CommandCenter() {
                     </p>
                   )}
                   <p
-                    className="text-sm font-semibold mt-0.5"
+                    className="text-sm font-semibold mt-1"
                     style={{ color: rank.color }}
                   >
                     {rank.emoji} {rank.name}
@@ -189,45 +189,47 @@ function CommandCenter() {
               </div>
             </div>
 
-            {/* ── Middle: Navigation Links ── */}
-            <nav className="flex-1 p-4 space-y-0.5 overflow-y-auto">
+            {/* ── Section 2: Navigation Links — scrollable on small screens ── */}
+            <nav className="flex-1 overflow-y-auto px-4 pt-5 pb-4">
               <p
-                className="text-[9px] font-bold uppercase tracking-widest px-3 mb-2"
+                className="text-[9px] font-bold uppercase tracking-widest px-3 mb-3"
                 style={{ color: "rgba(255,255,255,0.30)" }}
               >
                 Navigate
               </p>
 
-              {/* 3D Systems */}
-              <NavLink
-                to="/viewer"
-                end
-                onClick={handleNav}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
-                activeClassName="!text-primary !bg-primary/15"
-              >
-                <Bone size={15} />
-                3D Systems
-              </NavLink>
-
-              {/* Dashboard / Quiz / Flashcards */}
-              {navItems.map((item) => (
+              <div className="space-y-4">
+                {/* 3D Systems */}
                 <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/"}
+                  to="/viewer"
+                  end
                   onClick={handleNav}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
                   activeClassName="!text-primary !bg-primary/15"
                 >
-                  <item.icon size={15} />
-                  {item.label}
+                  <Bone size={15} />
+                  3D Systems
                 </NavLink>
-              ))}
+
+                {/* Dashboard / Quiz / Flashcards */}
+                {navItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === "/"}
+                    onClick={handleNav}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                    activeClassName="!text-primary !bg-primary/15"
+                  >
+                    <item.icon size={15} />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
             </nav>
 
-            {/* ── Bottom: Settings / Profile ── */}
-            <div className="p-4 border-t border-white/[0.07]">
+            {/* ── Bottom: Settings / Profile — always pinned ── */}
+            <div className="flex-shrink-0 p-4 border-t border-white/10">
               <NavLink
                 to="/profile"
                 onClick={handleNav}
