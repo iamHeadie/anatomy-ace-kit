@@ -421,8 +421,9 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
               )}
             </div>
 
-            {/* Safe-area bottom padding */}
-            <div className="h-4" />
+            {/* Safe-area bottom padding — env() gives extra space for
+                the iOS home indicator so the last card isn't hidden */}
+            <div style={{ height: "calc(1rem + env(safe-area-inset-bottom, 0px))" }} />
           </div>
         </motion.div>
       )}

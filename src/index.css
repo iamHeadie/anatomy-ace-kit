@@ -60,11 +60,34 @@
 @layer base {
   * {
     @apply border-border;
+    /* Prevent callout / selection magnifier on long-press (iOS) */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    /* Lock the html element to viewport height — prevents iOS Safari from
+       resizing when the address bar hides/shows */
+    height: 100%;
+    height: -webkit-fill-available;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    height: 100%;
+    /* Prevent rubber-band / elastic scroll bounce that exposes raw background */
+    overscroll-behavior: none;
+    /* Momentum scrolling for child scroll containers on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Disable iOS text size inflation when rotating to landscape */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #root {
+    /* Ensure the root div stretches to fill the full viewport — critical for
+       h-screen / w-screen inside AppLayout to compute correctly on mobile */
+    height: 100%;
+    height: -webkit-fill-available;
   }
 
   .font-mono {
@@ -114,6 +137,15 @@
       transform: scale(1.05);
     }
   }
+
+  /* ── iOS Safe-Area helpers ── */
+  /* Usage: style={{ paddingTop: "env(safe-area-inset-top)" }}
+     or className="pt-safe" after enabling in tailwind config.
+     These classes provide direct CSS custom property fallbacks. */
+  .safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .safe-left   { padding-left:   env(safe-area-inset-left,   0px); }
+  .safe-right  { padding-right:  env(safe-area-inset-right,  0px); }
 
   /* Mobile HUD — rank ring ripple effect */
   .animate-rank-ring-pulse {

@@ -22,17 +22,28 @@ const navItems = [
   { to: "/flashcards", label: "Flashcards", icon: Layers },
 ];
 
-/**
- * CommandCenter — unified top-left navigation hub.
- *
- * Closed state: a compact "Identity Widget" (avatar + 2go-style rank badge)
- * is pinned to the top-left so it doesn't obscure the skull/neck area.
- *
- * Open state: a full-height glassmorphism sidebar slides in from the left,
- * showing the user's profile at the top, all nav links in the middle, and
- * Settings / Profile at the bottom. The 3D model remains faintly visible
- * behind the translucent panel.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// CommandCenter
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// CLOSED STATE — "Identity Widget"
+//   • Fixed top-left, z-[100] — always floats above the 3D canvas, the
+//     floating bone labels (drei Html portal, z 50–90), and every page overlay
+//   • Avatar: 48 × 48 px (≥ 44 px touch target recommended by Apple HIG)
+//   • The button has an invisible 8 px padding region to extend the tap area
+//     so a thumb touching near-but-not-exactly on the avatar still registers
+//   • Positioned with env(safe-area-inset-*) so the notch / Dynamic Island
+//     on iPhone never clips the widget
+//
+// OPEN STATE — full-height glassmorphism sidebar
+//   • Width: min(80vw, 320px) — covers 80% of the screen on any phone while
+//     capping at 320 px on tablets / desktop so it doesn't look too wide
+//   • z-[98]: below the identity widget (z-[100]) so the widget can animate
+//     out cleanly on top of the expanding sidebar
+//   • Three sections: Profile (top), Nav links (middle), Settings (bottom)
+//   • Padding honours iOS safe-area insets (notch + home indicator)
+//
+// ─────────────────────────────────────────────────────────────────────────────
 function CommandCenter() {
   const [open, setOpen] = useState(false);
   const { state } = useUserState();
@@ -44,7 +55,7 @@ function CommandCenter() {
 
   return (
     <>
-      {/* ── Identity Widget — always pinned top-left when sidebar is closed ── */}
+      {/* ── Identity Widget — visible in the top-left when sidebar is closed ── */}
       <AnimatePresence>
         {!open && (
           <motion.button
@@ -55,13 +66,28 @@ function CommandCenter() {
             transition={{ duration: 0.15 }}
             onClick={() => setOpen(true)}
             aria-label="Open command center"
-            className="fixed top-3 left-3 z-[60] flex flex-col items-center gap-1 group"
+            /**
+             * z-[100] sits above:
+             *   • absolute z-0  — 3D canvas wrapper
+             *   • absolute z-10 — page overlays (Dashboard / Quiz / Flashcards)
+             *   • fixed   z-40  — InfoDrawer bottom sheet
+             *   • portal  z-90  — drei FloatingBoneLabel (after SkeletonModel fix)
+             *
+             * p-2 adds invisible padding around the visible avatar circle,
+             * expanding the touchable hit-box to ~64 × 64 px on mobile.
+             */
+            className="fixed z-[100] flex flex-col items-center group p-2"
+            style={{
+              /* Respect notch / Dynamic Island — requires viewport-fit=cover */
+              top: "calc(env(safe-area-inset-top, 0px) + 8px)",
+              left: "calc(env(safe-area-inset-left, 0px) + 8px)",
+            }}
           >
-            {/* Avatar circle with rank-coloured glow ring */}
+            {/* Avatar circle — 48 × 48 px (w-12 h-12) */}
             <span
-              className="relative flex items-center justify-center w-11 h-11 rounded-full transition-transform active:scale-95 group-hover:scale-105"
+              className="relative flex items-center justify-center w-12 h-12 rounded-full transition-transform active:scale-95 group-hover:scale-105"
               style={{
-                background: "rgba(14, 20, 36, 0.80)",
+                background: "rgba(14, 20, 36, 0.82)",
                 backdropFilter: "blur(14px)",
                 WebkitBackdropFilter: "blur(14px)",
                 boxShadow: `0 0 0 2.5px ${rank.color}, 0 0 14px ${rank.color}60`,
@@ -78,7 +104,7 @@ function CommandCenter() {
 
             {/* 2go-style rank badge */}
             <span
-              className="px-1.5 py-px text-[7px] font-bold rounded-full leading-tight whitespace-nowrap shadow-lg"
+              className="mt-1 px-1.5 py-px text-[7px] font-bold rounded-full leading-tight whitespace-nowrap shadow-lg"
               style={{ background: rank.color, color: "#0d1526" }}
             >
               {rank.emoji} {rank.name}
@@ -87,7 +113,7 @@ function CommandCenter() {
         )}
       </AnimatePresence>
 
-      {/* ── Backdrop — click to close ── */}
+      {/* ── Backdrop — tap to dismiss ── */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -96,7 +122,12 @@ function CommandCenter() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[58] bg-black/30"
+            /**
+             * z-[95] — below the identity widget (z-[100]) but above the
+             * page overlay (z-10) and InfoDrawer (z-40).
+             * blur(2px) lets the student still see the 3D ghost behind the sheet.
+             */
+            className="fixed inset-0 z-[95] bg-black/40"
             style={{ backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }}
             onClick={close}
             aria-hidden
@@ -113,27 +144,42 @@ function CommandCenter() {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="fixed left-0 top-0 bottom-0 z-[65] w-72 flex flex-col"
+            /**
+             * z-[98] — above the backdrop (z-[95]) but below the identity
+             * widget (z-[100]) so the avatar can animate out cleanly on top.
+             *
+             * Width: min(80vw, 320px)
+             *   → on a 375 px iPhone: 300 px  (80 %)
+             *   → on a 390 px iPhone 14: 312 px (80 %)
+             *   → on tablet / desktop: capped at 320 px
+             */
+            className="fixed left-0 top-0 bottom-0 z-[98] flex flex-col"
             style={{
-              background: "rgba(8, 14, 26, 0.80)",
+              width: "min(80vw, 320px)",
+              background: "rgba(8, 14, 26, 0.82)",
               backdropFilter: "blur(28px) saturate(160%)",
               WebkitBackdropFilter: "blur(28px) saturate(160%)",
               borderRight: "1px solid rgba(255,255,255,0.07)",
+              /* Safe-area padding so content clears the notch (top),
+                 home indicator (bottom), and side bezel (left) */
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              paddingLeft: "env(safe-area-inset-left, 0px)",
             }}
           >
             {/* Close button */}
             <button
               onClick={close}
               aria-label="Close command center"
-              className="absolute top-3 right-3 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors z-10"
+              className="absolute top-3 right-3 p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors z-10"
             >
               <X size={17} />
             </button>
 
             {/* ── Top: User Profile ── */}
-            <div className="pt-10 px-5 pb-5 border-b border-white/[0.07]">
+            <div className="pt-12 px-5 pb-5 border-b border-white/[0.07]">
               <div className="flex items-center gap-4">
-                {/* Large avatar with rank ring */}
+                {/* Large avatar with rank glow ring */}
                 <span
                   className="flex items-center justify-center w-16 h-16 rounded-full flex-shrink-0"
                   style={{
@@ -151,16 +197,26 @@ function CommandCenter() {
                 </span>
 
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground truncate">
+                  {/* Name */}
+                  <p className="font-semibold text-foreground truncate leading-tight">
                     {state.profile.name}
                   </p>
+
+                  {/* Department */}
                   {state.profile.department && (
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                       {state.profile.department}
                     </p>
                   )}
+
+                  {/* Occupation / Role */}
+                  <p className="text-[11px] text-muted-foreground/70 truncate">
+                    {state.profile.role}
+                  </p>
+
+                  {/* 2go Rank */}
                   <p
-                    className="text-sm font-semibold mt-0.5"
+                    className="text-sm font-bold mt-1"
                     style={{ color: rank.color }}
                   >
                     {rank.emoji} {rank.name}
@@ -197,10 +253,10 @@ function CommandCenter() {
                 to="/viewer"
                 end
                 onClick={handleNav}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
                 activeClassName="!text-primary !bg-primary/15"
               >
-                <Bone size={15} />
+                <Bone size={16} />
                 3D Systems
               </NavLink>
 
@@ -211,10 +267,10 @@ function CommandCenter() {
                   to={item.to}
                   end={item.to === "/"}
                   onClick={handleNav}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                  className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
                   activeClassName="!text-primary !bg-primary/15"
                 >
-                  <item.icon size={15} />
+                  <item.icon size={16} />
                   {item.label}
                 </NavLink>
               ))}
@@ -225,10 +281,10 @@ function CommandCenter() {
               <NavLink
                 to="/profile"
                 onClick={handleNav}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
                 activeClassName="!text-primary !bg-primary/15"
               >
-                <Settings size={15} />
+                <Settings size={16} />
                 Settings &amp; Profile
               </NavLink>
             </div>
@@ -239,6 +295,9 @@ function CommandCenter() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AppLayout
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AppLayout() {
   const location = useLocation();
   const isViewer = location.pathname === "/viewer";
@@ -263,8 +322,17 @@ export default function AppLayout() {
   const handleCloseDrawer = () => setDrawerOpen(false);
 
   return (
+    /**
+     * Root container — deliberately uses 100dvh (dynamic viewport height)
+     * via h-screen so it adapts when the iOS address bar shows / hides.
+     * overflow-hidden prevents any bleed from the 3D canvas.
+     */
     <div className="h-screen w-screen overflow-hidden relative bg-background">
-      {/* 3D Canvas — always full background */}
+
+      {/* 3D Canvas — pinned to the full viewport behind everything.
+          w-full h-full fills the h-screen × w-screen root, so the 3D
+          model naturally extends to the very bottom of the screen now
+          that the bottom nav bar is gone. */}
       <div className="absolute inset-0 z-0">
         <AnatomyScene
           selectedPart={selectedPart}
@@ -277,10 +345,12 @@ export default function AppLayout() {
         />
       </div>
 
-      {/* Top-left Command Center — unified navigation hub (both mobile & desktop) */}
+      {/* Top-left Command Center (works on mobile AND desktop — no hidden / md:block) */}
       <CommandCenter />
 
-      {/* Floating page overlays — rendered on top of 3D scene */}
+      {/* Floating page overlays — Dashboard / Quiz / Flashcards / Profile.
+          Inset 0 so they fill the entire screen including the bottom area
+          that was previously reserved for the dock. */}
       <AnimatePresence mode="wait">
         {!isViewer && (
           <motion.div
@@ -298,9 +368,12 @@ export default function AppLayout() {
         )}
       </AnimatePresence>
 
-      {/* Step 2 — "Shutter" Study Drawer
-          Slides up from the bottom when user taps a floating 3D bone label.
-          The bottom 20 % of the screen is kept clear for this panel. */}
+      {/* Study Drawer — slides up from the bottom when user taps a
+          floating 3D bone label. z-40 keeps it above the page overlay
+          (z-10) and below the CommandCenter (z-[95]+). The bottom 20% of
+          the screen is intentionally kept clear (see maxHeight: 62vh in
+          InfoDrawer) so this panel has room to appear without overlapping
+          the top-left identity widget. */}
       <InfoDrawer
         part={selectedPart}
         isOpen={drawerOpen}
@@ -308,7 +381,8 @@ export default function AppLayout() {
         onSelectPart={handleSelectPart}
       />
 
-      {/* Hover tooltip — shown when hovering a bone (desktop, no active selection) */}
+      {/* Hover tooltip — desktop only (pointer: fine). Shows the bone name
+          in a floating pill at the top centre of the canvas. */}
       {hoveredPart && !selectedPart && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 glass-panel px-3 py-1.5 text-sm font-mono text-primary pointer-events-none">
           {hoveredPart
@@ -317,13 +391,17 @@ export default function AppLayout() {
         </div>
       )}
 
-      {/* Hint pill — shown when a bone is selected but drawer is still closed */}
+      {/* Hint pill — visible when a bone is selected but the study drawer
+          is still closed. Positioned at bottom-6 so it clears the home
+          indicator on modern iPhones while staying visible above the 3D grid.
+          Does NOT conflict with the top-left identity widget. */}
       {selectedPart && !drawerOpen && (
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 6 }}
           className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+          style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
           <div
             className="px-3 py-1.5 rounded-full text-[11px] font-medium text-white/60"

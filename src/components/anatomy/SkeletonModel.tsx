@@ -124,7 +124,7 @@ function FloatingBoneLabel({
   ];
 
   return (
-    <Html position={worldPos} center zIndexRange={[200, 100]}>
+    <Html position={worldPos} center zIndexRange={[90, 50]}>
       <button
         onClick={(e) => { e.stopPropagation(); onOpenDrawer(); }}
         style={{
