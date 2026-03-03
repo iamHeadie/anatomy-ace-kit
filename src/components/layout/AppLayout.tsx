@@ -15,6 +15,7 @@ import type { BonePart } from "@/data/skeletalSystem";
 import { AnimatePresence, motion } from "framer-motion";
 import { useUserState } from "@/hooks/useUserState";
 import { getRank, getRankProgress } from "@/data/rankSystem";
+import { ProfileHeaderHUD } from "@/components/layout/ProfileHeaderHUD";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -22,73 +23,28 @@ const navItems = [
   { to: "/flashcards", label: "Flashcards", icon: Layers },
 ];
 
-/**
- * CommandCenter — unified top-left navigation hub.
- *
- * Closed state: a compact "Identity Widget" (avatar + 2go-style rank badge)
- * is pinned to the top-left so it doesn't obscure the skull/neck area.
- *
- * Open state: a full-height glassmorphism sidebar slides in from the left,
- * showing the user's profile at the top, all nav links in the middle, and
- * Settings / Profile at the bottom. The 3D model remains faintly visible
- * behind the translucent panel.
- */
-function CommandCenter() {
-  const [open, setOpen] = useState(false);
+// ─────────────────────────────────────────────────────────────────────────────
+// CommandCenter — full-height glassmorphism sidebar.
+//
+// The old "identity widget" (avatar button pinned top-left) has been removed;
+// the new ProfileHeaderHUD takes over that role as the open trigger.  This
+// component now only owns the backdrop and the slide-in panel.
+// ─────────────────────────────────────────────────────────────────────────────
+interface CommandCenterProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+function CommandCenter({ open, onClose }: CommandCenterProps) {
   const { state } = useUserState();
   const rank = getRank(state.xp);
   const progress = getRankProgress(state.xp);
 
-  const close = () => setOpen(false);
-  const handleNav = () => close();
+  const handleNav = () => onClose();
 
   return (
     <>
-      {/* ── Identity Widget — always pinned top-left when sidebar is closed ── */}
-      <AnimatePresence>
-        {!open && (
-          <motion.button
-            key="identity-widget"
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.85 }}
-            transition={{ duration: 0.15 }}
-            onClick={() => setOpen(true)}
-            aria-label="Open command center"
-            className="fixed top-4 left-4 z-[100] flex flex-col items-center gap-1 group p-2 touch-manipulation"
-            style={{ WebkitTapHighlightColor: "transparent" }}
-          >
-            {/* Avatar circle with rank-coloured glow ring — w-12 h-12 for easier thumb tap on mobile */}
-            <span
-              className="relative flex items-center justify-center w-12 h-12 rounded-full transition-transform active:scale-95 group-hover:scale-105"
-              style={{
-                background: "rgba(14, 20, 36, 0.80)",
-                backdropFilter: "blur(14px)",
-                WebkitBackdropFilter: "blur(14px)",
-                boxShadow: `0 0 0 2.5px ${rank.color}, 0 0 14px ${rank.color}60`,
-              }}
-            >
-              <span
-                className={`text-2xl leading-none select-none ${
-                  rank.glowing ? "animate-diamond-glow" : ""
-                }`}
-              >
-                {state.profile.avatar}
-              </span>
-            </span>
-
-            {/* 2go-style rank badge */}
-            <span
-              className="px-1.5 py-px text-[7px] font-bold rounded-full leading-tight whitespace-nowrap shadow-lg"
-              style={{ background: rank.color, color: "#0d1526" }}
-            >
-              {rank.emoji} {rank.name}
-            </span>
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* ── Backdrop — click to close ── */}
+      {/* ── Backdrop — click outside to close ── */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -98,8 +54,11 @@ function CommandCenter() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[105] bg-black/30"
-            style={{ backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }}
-            onClick={close}
+            style={{
+              backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
+            }}
+            onClick={onClose}
             aria-hidden
           />
         )}
@@ -124,14 +83,14 @@ function CommandCenter() {
           >
             {/* Close button */}
             <button
-              onClick={close}
+              onClick={onClose}
               aria-label="Close command center"
               className="absolute top-3 right-3 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors z-10"
             >
               <X size={17} />
             </button>
 
-            {/* ── Section 1: Profile Header — flex-shrink-0 prevents nav overlap ── */}
+            {/* ── Section 1: Profile Header ── */}
             <div className="flex-shrink-0 pt-10 px-5 pb-6 min-h-[200px] border-b border-white/10">
               <div className="flex items-start gap-4">
                 {/* Large avatar with rank ring */}
@@ -189,7 +148,7 @@ function CommandCenter() {
               </div>
             </div>
 
-            {/* ── Section 2: Navigation Links — scrollable on small screens ── */}
+            {/* ── Section 2: Navigation Links ── */}
             <nav className="flex-1 overflow-y-auto px-4 pt-5 pb-4">
               <p
                 className="text-[9px] font-bold uppercase tracking-widest px-3 mb-3"
@@ -199,7 +158,6 @@ function CommandCenter() {
               </p>
 
               <div className="space-y-4">
-                {/* 3D Systems */}
                 <NavLink
                   to="/viewer"
                   end
@@ -211,7 +169,6 @@ function CommandCenter() {
                   3D Systems
                 </NavLink>
 
-                {/* Dashboard / Quiz / Flashcards */}
                 {navItems.map((item) => (
                   <NavLink
                     key={item.to}
@@ -228,7 +185,7 @@ function CommandCenter() {
               </div>
             </nav>
 
-            {/* ── Bottom: Settings / Profile — always pinned ── */}
+            {/* ── Bottom: Settings / Profile ── */}
             <div className="flex-shrink-0 p-4 border-t border-white/10">
               <NavLink
                 to="/profile"
@@ -247,13 +204,20 @@ function CommandCenter() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AppLayout — root shell: 3D canvas always visible in the background; page
+// overlays slide in on top; ProfileHeaderHUD fixed at the very top.
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AppLayout() {
   const location = useLocation();
   const isViewer = location.pathname === "/viewer";
 
+  // Lifted sidebar open state — shared between ProfileHeaderHUD (trigger) and
+  // CommandCenter (sidebar + backdrop).
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const [selectedPart, setSelectedPart] = useState<BonePart | null>(null);
   const [hoveredPart, setHoveredPart] = useState<string | null>(null);
-  /** drawerOpen — true only after the user taps the floating 3D label */
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const handleSelectPart = (part: BonePart) => {
@@ -285,8 +249,14 @@ export default function AppLayout() {
         />
       </div>
 
-      {/* Top-left Command Center — unified navigation hub (both mobile & desktop) */}
-      <CommandCenter />
+      {/* Persistent HUD — pinned to the very top of every view */}
+      <ProfileHeaderHUD onOpen={() => setSidebarOpen(true)} />
+
+      {/* CommandCenter — backdrop + slide-in sidebar (no identity widget) */}
+      <CommandCenter
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       {/* Floating page overlays — rendered on top of 3D scene */}
       <AnimatePresence mode="wait">
@@ -299,16 +269,15 @@ export default function AppLayout() {
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="absolute inset-0 z-10 overflow-y-auto"
           >
-            <div className="min-h-full bg-background/85 backdrop-blur-xl">
+            {/* pt-14 offsets content below the 56px ProfileHeaderHUD */}
+            <div className="min-h-full bg-background/85 backdrop-blur-xl pt-14">
               <Outlet />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Step 2 — "Shutter" Study Drawer
-          Slides up from the bottom when user taps a floating 3D bone label.
-          The bottom 20 % of the screen is kept clear for this panel. */}
+      {/* Bone study drawer — slides up from the bottom */}
       <InfoDrawer
         part={selectedPart}
         isOpen={drawerOpen}
@@ -316,9 +285,9 @@ export default function AppLayout() {
         onSelectPart={handleSelectPart}
       />
 
-      {/* Hover tooltip — shown when hovering a bone (desktop, no active selection) */}
+      {/* Hover tooltip — moved to top-[72px] so it clears the HUD */}
       {hoveredPart && !selectedPart && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 glass-panel px-3 py-1.5 text-sm font-mono text-primary pointer-events-none">
+        <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-20 glass-panel px-3 py-1.5 text-sm font-mono text-primary pointer-events-none">
           {hoveredPart
             .replace(/-/g, " ")
             .replace(/\b\w/g, (c) => c.toUpperCase())}
