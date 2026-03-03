@@ -53,7 +53,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[105] bg-black/30"
+            className="fixed inset-0 z-40 bg-black/30"
             style={{
               backdropFilter: "blur(2px)",
               WebkitBackdropFilter: "blur(2px)",
@@ -73,7 +73,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="fixed left-0 top-0 bottom-0 z-[110] w-[80vw] max-w-72 flex flex-col overflow-hidden"
+            className="fixed left-0 top-0 bottom-0 z-50 w-[80vw] max-w-72 flex flex-col gap-8 overflow-y-auto p-6"
             style={{
               background: "rgba(8, 14, 26, 0.80)",
               backdropFilter: "blur(28px) saturate(160%)",
@@ -85,13 +85,13 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             <button
               onClick={onClose}
               aria-label="Close command center"
-              className="absolute top-3 right-3 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors z-10"
+              className="absolute top-3 right-3 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors"
             >
               <X size={17} />
             </button>
 
-            {/* ── Section 1: Profile Header ── */}
-            <div className="flex-shrink-0 pt-10 px-5 pb-6 min-h-[200px] border-b border-white/10">
+            {/* ── Section 1: Profile Header (Identity Block) ── */}
+            <div className="flex-shrink-0 pt-4 mb-5 border-b border-white/10 pb-6">
               <div className="flex items-start gap-4">
                 {/* Large avatar with rank ring */}
                 <span
@@ -148,16 +148,16 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
               </div>
             </div>
 
-            {/* ── Section 2: Navigation Links ── */}
-            <nav className="flex-1 overflow-y-auto px-4 pt-5 pb-4">
+            {/* ── Section 2: Navigation Links (Middle Block) ── */}
+            <nav className="flex-shrink-0">
               <p
-                className="text-[9px] font-bold uppercase tracking-widest px-3 mb-3"
+                className="text-[9px] font-bold uppercase tracking-widest mb-3"
                 style={{ color: "rgba(255,255,255,0.30)" }}
               >
                 Navigate
               </p>
 
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <NavLink
                   to="/viewer"
                   end
@@ -186,7 +186,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             </nav>
 
             {/* ── Bottom: Settings / Profile ── */}
-            <div className="flex-shrink-0 p-4 border-t border-white/10">
+            <div className="mt-auto flex-shrink-0 pt-4 border-t border-white/10">
               <NavLink
                 to="/profile"
                 onClick={handleNav}
