@@ -42,7 +42,7 @@ export function ProfileHeaderHUD({ onOpen }: ProfileHeaderHUDProps) {
       tabIndex={0}
       aria-label="Open profile sidebar"
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
-      className="fixed top-0 left-0 right-0 z-[90] flex items-center justify-between px-4 h-14 cursor-pointer select-none touch-manipulation"
+      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14 cursor-pointer select-none touch-manipulation"
       style={{
         background: "rgba(8, 14, 26, 0.65)",
         backdropFilter: "blur(20px) saturate(160%)",
