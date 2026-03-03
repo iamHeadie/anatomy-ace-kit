@@ -114,4 +114,18 @@
       transform: scale(1.05);
     }
   }
+
+  /* Mobile HUD — rank ring ripple effect */
+  .animate-rank-ring-pulse {
+    animation: rank-ring-pulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes rank-ring-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 2.5px currentColor, 0 0 8px currentColor;
+    }
+    50% {
+      box-shadow: 0 0 0 3.5px currentColor, 0 0 16px currentColor, 0 0 28px currentColor;
+    }
+  }
 }
