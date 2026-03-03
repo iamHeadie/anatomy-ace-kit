@@ -55,11 +55,12 @@ function CommandCenter() {
             transition={{ duration: 0.15 }}
             onClick={() => setOpen(true)}
             aria-label="Open command center"
-            className="fixed top-3 left-3 z-[60] flex flex-col items-center gap-1 group"
+            className="fixed top-4 left-4 z-[100] flex flex-col items-center gap-1 group p-2 touch-manipulation"
+            style={{ WebkitTapHighlightColor: "transparent" }}
           >
-            {/* Avatar circle with rank-coloured glow ring */}
+            {/* Avatar circle with rank-coloured glow ring — w-12 h-12 for easier thumb tap on mobile */}
             <span
-              className="relative flex items-center justify-center w-11 h-11 rounded-full transition-transform active:scale-95 group-hover:scale-105"
+              className="relative flex items-center justify-center w-12 h-12 rounded-full transition-transform active:scale-95 group-hover:scale-105"
               style={{
                 background: "rgba(14, 20, 36, 0.80)",
                 backdropFilter: "blur(14px)",
@@ -96,7 +97,7 @@ function CommandCenter() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[58] bg-black/30"
+            className="fixed inset-0 z-[105] bg-black/30"
             style={{ backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }}
             onClick={close}
             aria-hidden
@@ -113,7 +114,7 @@ function CommandCenter() {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="fixed left-0 top-0 bottom-0 z-[65] w-72 flex flex-col"
+            className="fixed left-0 top-0 bottom-0 z-[110] w-[80vw] max-w-72 flex flex-col"
             style={{
               background: "rgba(8, 14, 26, 0.80)",
               backdropFilter: "blur(28px) saturate(160%)",
@@ -157,6 +158,11 @@ function CommandCenter() {
                   {state.profile.department && (
                     <p className="text-xs text-muted-foreground truncate">
                       {state.profile.department}
+                    </p>
+                  )}
+                  {state.profile.role && (
+                    <p className="text-xs text-muted-foreground/70 truncate">
+                      {state.profile.role}
                     </p>
                   )}
                   <p

@@ -257,8 +257,9 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                className="p-2.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 touch-manipulation"
                 aria-label="Close"
+                style={{ WebkitTapHighlightColor: "transparent" }}
               >
                 <X size={16} />
               </button>
@@ -421,8 +422,8 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
               )}
             </div>
 
-            {/* Safe-area bottom padding */}
-            <div className="h-4" />
+            {/* Safe-area bottom padding — accounts for iPhone home indicator */}
+            <div className="h-4" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }} />
           </div>
         </motion.div>
       )}
