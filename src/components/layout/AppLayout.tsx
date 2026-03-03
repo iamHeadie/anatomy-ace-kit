@@ -53,7 +53,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[100] bg-black/30"
+            className="fixed inset-0 z-40 bg-black/30"
             style={{
               backdropFilter: "blur(2px)",
               WebkitBackdropFilter: "blur(2px)",
@@ -73,7 +73,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="fixed left-0 top-0 bottom-0 z-[110] w-[80vw] max-w-72 flex flex-col gap-8 overflow-y-auto p-6"
+            className="fixed left-0 top-0 bottom-0 z-50 w-[80vw] max-w-72 flex flex-col gap-6 overflow-y-auto p-6"
             style={{
               background: "rgba(8, 14, 26, 0.80)",
               backdropFilter: "blur(28px) saturate(160%)",
@@ -85,7 +85,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             <button
               onClick={onClose}
               aria-label="Close command center"
-              className="absolute top-3 right-3 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors"
+              className="self-end p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors"
             >
               <X size={17} />
             </button>
@@ -149,7 +149,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             </div>
 
             {/* ── Section 2: Navigation Links (Middle Block) ── */}
-            <nav className="flex-shrink-0">
+            <nav className="relative z-10 flex-shrink-0">
               <p
                 className="text-[9px] font-bold uppercase tracking-widest mb-3"
                 style={{ color: "rgba(255,255,255,0.30)" }}
@@ -237,7 +237,7 @@ export default function AppLayout() {
   return (
     <div className="h-screen w-screen overflow-hidden relative bg-background">
       {/* 3D Canvas — always full background */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-[1]">
         <AnatomyScene
           selectedPart={selectedPart}
           hoveredPart={hoveredPart}
