@@ -4,6 +4,7 @@ import { skeletalParts } from "@/data/skeletalSystem";
 import { RotateCcw, ChevronLeft, ChevronRight, Bone } from "lucide-react";
 import { useUserState } from "@/hooks/useUserState";
 import { BoneMiniViewer } from "@/components/anatomy/BoneMiniViewer";
+import { BoneAtlasViewer } from "@/components/anatomy/BoneAtlasViewer";
 
 export default function Flashcards() {
   const cards = useMemo(() => [...skeletalParts].sort(() => Math.random() - 0.5), []);
@@ -42,7 +43,7 @@ export default function Flashcards() {
         >
           {/* ── FRONT ── */}
           <div
-            className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center p-6 gap-3"
+            className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center p-6 gap-3 relative"
             style={{
               backfaceVisibility: "hidden",
               background: "rgba(255,255,255,0.04)",
@@ -50,7 +51,7 @@ export default function Flashcards() {
               backdropFilter: "blur(12px)",
             }}
           >
-            {/* 3D mini bone preview */}
+            {/* Atlas image — zoomed into this bone's region */}
             <div className="w-full flex-1 min-h-0 max-h-44 rounded-xl overflow-hidden"
               style={{ background: "rgba(0,0,0,0.25)" }}
             >
@@ -62,9 +63,16 @@ export default function Flashcards() {
                   exit={{ opacity: 0 }}
                   className="w-full h-full"
                 >
-                  <BoneMiniViewer boneId={card.id} className="w-full h-full" />
+                  <BoneAtlasViewer boneId={card.id} boneName={card.name} className="w-full h-full" />
                 </motion.div>
               </AnimatePresence>
+            </div>
+            {/* 3D viewer kept as secondary reference in a smaller pip */}
+            <div className="absolute top-3 right-3 w-16 h-16 rounded-lg overflow-hidden opacity-50 hover:opacity-90 transition-opacity"
+              style={{ background: "rgba(0,0,0,0.4)" }}
+              title="3D model"
+            >
+              <BoneMiniViewer boneId={card.id} className="w-full h-full" />
             </div>
 
             <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">

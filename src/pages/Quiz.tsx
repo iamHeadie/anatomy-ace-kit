@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { skeletalParts } from "@/data/skeletalSystem";
-import { getBoneImage } from "@/data/boneImages";
 import { CheckCircle, XCircle, ArrowRight, Calendar } from "lucide-react";
 import { useUserState } from "@/hooks/useUserState";
+import { BoneAtlasViewer } from "@/components/anatomy/BoneAtlasViewer";
 
 // Seed-based pseudo-random for daily consistency
 function seededRandom(seed: number) {
@@ -35,7 +35,10 @@ interface Question {
   question: string;
   correctAnswer: string;
   options: string[];
+  /** Legacy Wikimedia image URL (kept for backwards compatibility) */
   imageUrl?: string;
+  /** Bone ID used to render the atlas sprite (preferred over imageUrl) */
+  boneId?: string;
 }
 
 const DAILY_QUESTION_COUNT = 20;
@@ -57,7 +60,7 @@ function generateQuestions(round: number): Question[] {
 
     if (type === "fact" && correct.facts.length === 0) type = "region";
     if (type === "connection" && correct.connections.length === 0) type = "region";
-    if (type === "image" && !getBoneImage(correct.id, correct.region)) type = "description";
+    // "image" questions are always valid — BoneAtlasViewer handles unmapped bones via fallback
 
     const allOptions = shuffle([...wrongPool.map((w) => w.name), correct.name], rng);
 
@@ -87,8 +90,13 @@ function generateQuestions(round: number): Question[] {
         break;
       }
       case "image": {
-        const imgUrl = getBoneImage(correct.id, correct.region);
-        questions.push({ type, question: "Which bone is shown in this image?", correctAnswer: correct.name, options: allOptions, imageUrl: imgUrl || undefined });
+        questions.push({
+          type,
+          question: "Which bone is shown in this image?",
+          correctAnswer: correct.name,
+          options: allOptions,
+          boneId: correct.id,
+        });
         break;
       }
       case "odd_one_out": {
@@ -225,7 +233,13 @@ export default function Quiz() {
               {current.type.replace("_", " ")}
             </span>
             <p className="text-lg font-medium text-foreground">{current.question}</p>
-            {current.imageUrl && (
+            {current.boneId && (
+              <div className="h-44 w-full max-w-xs mx-auto rounded-xl overflow-hidden"
+                style={{ background: "rgba(0,0,0,0.25)" }}>
+                <BoneAtlasViewer boneId={current.boneId} boneName={current.correctAnswer} />
+              </div>
+            )}
+            {!current.boneId && current.imageUrl && (
               <img src={current.imageUrl} alt="Bone illustration" className="h-32 w-auto object-contain rounded-lg mx-auto opacity-90" />
             )}
           </div>
