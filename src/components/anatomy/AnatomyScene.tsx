@@ -1,7 +1,31 @@
+/**
+ * AnatomyScene.tsx
+ *
+ * Scene Environment:
+ *   • Background  — dark, slightly slate-textured matte finish (#171720)
+ *     achieved via scene.background colour + subtle background plane.
+ *   • Lighting    — professional three-point system:
+ *       Key   warm white  (#fff8e7 / 1.4)  — upper-left-front primary
+ *       Fill  cool blue   (#c8d8ff / 0.45) — right-side shadow softener
+ *       Back  warm rim    (#ffe0a0 / 0.6)  — upper-rear silhouette accent
+ *       Ambient            (#d0d8e8 / 0.18) — global bounce
+ *       Teal accent point  (#14b8a6 / 0.35) — app-brand accent near model
+ *
+ * 3D Model:
+ *   ExplodedSkeletonAtlas renders all 206 bones as individually coloured,
+ *   interactive meshes in an "exploded atlas" formation.  The entire group
+ *   moves as a single unified entity under OrbitControls.
+ *
+ * Quiz Mode:
+ *   Hovering any bone causes every bone in the same anatomical region to
+ *   pulse with the app's teal (#14b8a6) glow — matching the UI accent colour.
+ */
+
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, Environment, ContactShadows, Grid, Bounds, useBounds } from "@react-three/drei";
+import { OrbitControls, Bounds, useBounds, ContactShadows } from "@react-three/drei";
 import { Suspense, useEffect, useRef } from "react";
-import { SkeletonModel } from "./SkeletonModel";
+import * as THREE from "three";
+import { ExplodedSkeletonAtlas } from "./ExplodedSkeletonAtlas";
 import { BoneModel } from "./BoneModel";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
 
@@ -15,7 +39,22 @@ interface AnatomySceneProps {
   drawerOpen: boolean;
 }
 
-// Fallback primitive skeleton when GLB fails to load
+// ── Dark slate background applied to the Three.js scene ───────────────────────
+const SLATE_BG = new THREE.Color("#171720");
+
+function SceneBackground() {
+  const { scene, gl } = useThree();
+  useEffect(() => {
+    scene.background = SLATE_BG;
+    gl.setClearColor(SLATE_BG, 1);
+    return () => {
+      scene.background = null;
+    };
+  }, [scene, gl]);
+  return null;
+}
+
+// ── Fallback primitive skeleton shown during Suspense loading ─────────────────
 function PrimitiveSkeletonGroup({
   selectedPart,
   hoveredPart,
@@ -29,7 +68,10 @@ function PrimitiveSkeletonGroup({
           key={bone.id}
           bone={bone}
           isSelected={selectedPart?.id === bone.id}
-          isHighlighted={hoveredPart === bone.id || (selectedPart?.connections.includes(bone.id) ?? false)}
+          isHighlighted={
+            hoveredPart === bone.id ||
+            (selectedPart?.connections.includes(bone.id) ?? false)
+          }
           onClick={() => onSelectPart(bone)}
           onHover={(h) => onHoverPart(h ? bone.id : null)}
         />
@@ -38,8 +80,7 @@ function PrimitiveSkeletonGroup({
   );
 }
 
-// Camera controller — shifts orbit target when drawer opens so the selected
-// bone stays visible in the upper viewport above the bottom sheet
+// ── Camera controller — shifts orbit target when the study drawer opens ───────
 function CameraController({
   drawerOpen,
   selectedPart,
@@ -56,8 +97,6 @@ function CameraController({
     prevDrawerOpen.current = drawerOpen;
 
     if (drawerOpen && selectedPart) {
-      // Shift target downward so the skeleton appears in the upper half
-      // (the bottom 62 vh is now occupied by the info drawer)
       controls.target.set(0, -0.8, 0);
     } else {
       controls.target.set(0, 0.5, 0);
@@ -68,9 +107,9 @@ function CameraController({
   return null;
 }
 
-// Auto-framing component that responds to selectedPart changes
+// ── Auto-framing — re-fits the camera when selected part changes ──────────────
 function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
-  const bounds = useBounds();
+  const bounds     = useBounds();
   const prevPartId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -86,26 +125,9 @@ function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
   return null;
 }
 
-function SceneContent({
-  selectedPart,
-  hoveredPart,
-  onSelectPart,
-  onHoverPart,
-  onClearSelection,
-  onOpenDrawer,
-}: Omit<AnatomySceneProps, "drawerOpen">) {
-  return (
-    <SkeletonModel
-      selectedPart={selectedPart}
-      hoveredPart={hoveredPart}
-      onSelectPart={onSelectPart}
-      onHoverPart={onHoverPart}
-      onClearSelection={onClearSelection}
-      onOpenDrawer={onOpenDrawer}
-    />
-  );
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
+// AnatomyScene
+// ─────────────────────────────────────────────────────────────────────────────
 export function AnatomyScene({
   selectedPart,
   hoveredPart,
@@ -118,11 +140,13 @@ export function AnatomyScene({
   return (
     <div className="w-full h-full">
       <Canvas
-        camera={{ position: [0, 1, 5.5], fov: 50 }}
+        camera={{ position: [0, 1, 8], fov: 50 }}
         dpr={[1, 2]}
-        className="!bg-transparent"
-        style={{ touchAction: "none" }}
+        style={{ touchAction: "none", background: "#171720" }}
       >
+        {/* Set Three.js scene background to dark slate */}
+        <SceneBackground />
+
         <Suspense
           fallback={
             <PrimitiveSkeletonGroup
@@ -133,13 +157,47 @@ export function AnatomyScene({
             />
           }
         >
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[5, 8, 5]} intensity={0.9} castShadow />
-          <directionalLight position={[-3, 4, -3]} intensity={0.3} />
-          <pointLight position={[0, 2, 3]} intensity={0.4} color="#14b8a6" />
+          {/* ── Three-Point Medical Lighting ─────────────────────────────── */}
 
-          <Bounds fit clip observe margin={1.8}>
-            <SceneContent
+          {/* Global ambient — very dim, prevents pitch-black shadows */}
+          <ambientLight color="#d0d8e8" intensity={0.18} />
+
+          {/* KEY LIGHT — warm white, primary illumination from upper-left-front */}
+          <directionalLight
+            position={[-4, 7, 5]}
+            intensity={1.4}
+            color="#fff8e7"
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+          />
+
+          {/* FILL LIGHT — cool blue, opposite side, softens shadows */}
+          <directionalLight
+            position={[5, 3, -3]}
+            intensity={0.45}
+            color="#c8d8ff"
+          />
+
+          {/* BACK / RIM LIGHT — warm, rear-upper, creates silhouette separation */}
+          <directionalLight
+            position={[0, 6, -8]}
+            intensity={0.6}
+            color="#ffe0a0"
+          />
+
+          {/* ACCENT — teal point light near model centre (brand colour) */}
+          <pointLight
+            position={[0, 2, 3]}
+            intensity={0.35}
+            color="#14b8a6"
+            distance={12}
+            decay={2}
+          />
+
+          {/* ── Exploded Atlas (206 individually coloured bones) ─────────── */}
+          <Bounds fit clip observe margin={1.6}>
+            <ExplodedSkeletonAtlas
               selectedPart={selectedPart}
               hoveredPart={hoveredPart}
               onSelectPart={onSelectPart}
@@ -150,42 +208,28 @@ export function AnatomyScene({
             <AutoFramer selectedPart={selectedPart} />
           </Bounds>
 
+          {/* Subtle ground shadow for depth cues */}
           <ContactShadows
-            position={[0, -2.85, 0]}
-            opacity={0.4}
-            scale={10}
-            blur={2}
-            far={4}
+            position={[0, -2.9, 0]}
+            opacity={0.25}
+            scale={12}
+            blur={3}
+            far={5}
+            color="#000820"
           />
 
-          <Grid
-            position={[0, -2.85, 0]}
-            args={[20, 20]}
-            cellSize={0.5}
-            cellThickness={0.5}
-            cellColor="#1a2744"
-            sectionSize={2}
-            sectionThickness={1}
-            sectionColor="#1e3a5f"
-            fadeDistance={15}
-            fadeStrength={1}
-            infiniteGrid
-          />
-
+          {/* ── Controls ─────────────────────────────────────────────────── */}
           <OrbitControls
             enablePan
             enableZoom
             enableRotate
-            minDistance={1}
-            maxDistance={15}
+            minDistance={1.5}
+            maxDistance={18}
             target={[0, 0.5, 0]}
             makeDefault
           />
 
-          {/* Shifts camera target when the study drawer opens */}
           <CameraController drawerOpen={drawerOpen} selectedPart={selectedPart} />
-
-          <Environment preset="night" />
         </Suspense>
       </Canvas>
     </div>
