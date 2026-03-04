@@ -12,9 +12,10 @@
  *       Teal accent point  (#14b8a6 / 0.35) — app-brand accent near model
  *
  * 3D Model:
- *   ExplodedSkeletonAtlas renders all 206 bones as individually coloured,
- *   interactive meshes in an "exploded atlas" formation.  The entire group
- *   moves as a single unified entity under OrbitControls.
+ *   SkeletonViewer loads the real skeleton.glb organic mesh and applies
+ *   atlas-based colour coding to each bone group surface (Femur → Red,
+ *   Tibia → Yellow, Cranium → Light Blue, etc.) using MeshStandardMaterial
+ *   roughness 0.7. Replaces the placeholder ExplodedSkeletonAtlas geometry.
  *
  * Quiz Mode:
  *   Hovering any bone causes every bone in the same anatomical region to
@@ -25,7 +26,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Bounds, useBounds, ContactShadows } from "@react-three/drei";
 import { Suspense, useEffect, useRef } from "react";
 import * as THREE from "three";
-import { ExplodedSkeletonAtlas } from "./ExplodedSkeletonAtlas";
+import { SkeletonViewer } from "./SkeletonViewer";
 import { BoneModel } from "./BoneModel";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
 
@@ -97,9 +98,9 @@ function CameraController({
     prevDrawerOpen.current = drawerOpen;
 
     if (drawerOpen && selectedPart) {
-      controls.target.set(0, -0.8, 0);
+      controls.target.set(0, -0.5, 0);
     } else {
-      controls.target.set(0, 0.5, 0);
+      controls.target.set(0, 0.65, 0);
     }
     controls.update();
   }, [drawerOpen, selectedPart, controls]);
@@ -140,7 +141,7 @@ export function AnatomyScene({
   return (
     <div className="w-full h-full">
       <Canvas
-        camera={{ position: [0, 1, 8], fov: 50 }}
+        camera={{ position: [0, 0.65, 12], fov: 45 }}
         dpr={[1, 2]}
         style={{ touchAction: "none", background: "#171720" }}
       >
@@ -195,9 +196,9 @@ export function AnatomyScene({
             decay={2}
           />
 
-          {/* ── Exploded Atlas (206 individually coloured bones) ─────────── */}
-          <Bounds fit clip observe margin={1.6}>
-            <ExplodedSkeletonAtlas
+          {/* ── Realistic Skeleton (organic GLB mesh, atlas colour-coded) ─── */}
+          <Bounds fit clip observe margin={1.4}>
+            <SkeletonViewer
               selectedPart={selectedPart}
               hoveredPart={hoveredPart}
               onSelectPart={onSelectPart}
@@ -224,8 +225,8 @@ export function AnatomyScene({
             enableZoom
             enableRotate
             minDistance={1.5}
-            maxDistance={18}
-            target={[0, 0.5, 0]}
+            maxDistance={22}
+            target={[0, 0.65, 0]}
             makeDefault
           />
 
