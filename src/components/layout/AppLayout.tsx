@@ -17,12 +17,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRank, getRankProgress } from "@/data/rankSystem";
 import { ProfileHeaderHUD } from "@/components/layout/ProfileHeaderHUD";
-import { AppTour, TourTriggerButton } from "@/components/onboarding/AppTour";
+import { InteractiveTour, TourTriggerButton } from "@/components/onboarding/InteractiveTour";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/quiz", label: "Quiz", icon: BookOpen },
-  { to: "/flashcards", label: "Flashcards", icon: Layers },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, tourId: "tour-dashboard" },
+  { to: "/quiz", label: "Quiz", icon: BookOpen, tourId: "tour-quiz" },
+  { to: "/flashcards", label: "Flashcards", icon: Layers, tourId: "tour-flashcards" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
             </button>
 
             {/* ── Section 1: Profile Header (Identity Block) ── */}
-            <div className="flex-shrink-0 pt-4 mb-5 border-b border-white/10 pb-6">
+            <div id="tour-profile" className="flex-shrink-0 pt-4 mb-5 border-b border-white/10 pb-6">
               <div className="flex items-start gap-4">
                 {/* Large avatar with rank ring */}
                 <span
@@ -178,6 +178,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                 {navItems.map((item) => (
                   <NavLink
                     key={item.to}
+                    id={item.tourId}
                     to={item.to}
                     end={item.to === "/"}
                     onClick={handleNav}
@@ -250,8 +251,11 @@ export default function AppLayout() {
 
   return (
     <div className="h-screen w-screen overflow-hidden relative bg-background">
-      {/* In-app onboarding tour */}
-      <AppTour />
+      {/* Interactive spotlight onboarding tour */}
+      <InteractiveTour
+        onOpenSidebar={() => setSidebarOpen(true)}
+        onCloseSidebar={() => setSidebarOpen(false)}
+      />
       {/* 3D Canvas — always full background */}
       <div className="absolute inset-0 z-[1]">
         <AnatomyScene
