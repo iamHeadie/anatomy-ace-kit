@@ -7,13 +7,14 @@ import {
   Layers,
   Settings,
   X,
+  LogOut,
 } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AnatomyScene } from "@/components/anatomy/AnatomyScene";
 import { InfoDrawer } from "@/components/anatomy/InfoDrawer";
 import type { BonePart } from "@/data/skeletalSystem";
 import { AnimatePresence, motion } from "framer-motion";
-import { useUserState } from "@/hooks/useUserState";
+import { useAuth } from "@/contexts/AuthContext";
 import { getRank, getRankProgress } from "@/data/rankSystem";
 import { ProfileHeaderHUD } from "@/components/layout/ProfileHeaderHUD";
 import { AppTour, TourTriggerButton } from "@/components/onboarding/AppTour";
@@ -37,9 +38,13 @@ interface CommandCenterProps {
 }
 
 function CommandCenter({ open, onClose }: CommandCenterProps) {
-  const { state } = useUserState();
-  const rank = getRank(state.xp);
-  const progress = getRankProgress(state.xp);
+  const { profile, signOut } = useAuth();
+  const xp = profile?.xp ?? 0;
+  const rank = getRank(xp);
+  const progress = getRankProgress(xp);
+  const displayName = profile?.username || "Explorer";
+  const department = profile?.department || "";
+  const avatar = profile?.avatar || "💀";
 
   const handleNav = () => onClose();
 
@@ -107,22 +112,22 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                       rank.glowing ? "animate-diamond-glow" : ""
                     }`}
                   >
-                    {state.profile.avatar}
+                    {avatar}
                   </span>
                 </span>
 
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-foreground truncate">
-                    {state.profile.name}
+                    {displayName}
                   </p>
-                  {state.profile.department && (
+                  {department && (
                     <p className="text-xs text-muted-foreground line-clamp-2 leading-snug mt-0.5">
-                      {state.profile.department}
+                      {department}
                     </p>
                   )}
-                  {state.profile.role && (
+                  {profile?.occupation && (
                     <p className="text-xs text-muted-foreground/70 truncate">
-                      {state.profile.role}
+                      {profile.occupation}
                     </p>
                   )}
                   <p
@@ -143,7 +148,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                     />
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    {state.xp.toLocaleString()} XP · {progress}% to next rank
+                    {xp.toLocaleString()} XP · {progress}% to next rank
                   </p>
                 </div>
               </div>
@@ -186,7 +191,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
               </div>
             </nav>
 
-            {/* ── Bottom: Settings / Profile + Tour ── */}
+            {/* ── Bottom: Settings / Profile + Tour + Sign Out ── */}
             <div className="mt-auto flex-shrink-0 pt-4 border-t border-white/10 space-y-1">
               <NavLink
                 to="/profile"
@@ -198,6 +203,13 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                 Settings &amp; Profile
               </NavLink>
               <TourTriggerButton />
+              <button
+                onClick={() => { onClose(); signOut(); }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors w-full"
+              >
+                <LogOut size={15} />
+                Sign Out
+              </button>
             </div>
           </motion.aside>
         )}

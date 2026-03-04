@@ -1,6 +1,15 @@
 import { motion } from "framer-motion";
 import { BookOpen, Brain, Trophy, TrendingUp, Clock, Target } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+
+function getGreeting(name: string): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return `Good morning, ${name} ☀️`;
+  if (hour >= 12 && hour < 18) return `Good afternoon, ${name} 🌤️`;
+  if (hour >= 18 && hour < 22) return `Good evening, ${name} 🌙`;
+  return `Burning the midnight oil, ${name}? 🕯️`;
+}
 
 const stats = [
   { label: "Bones Learned", value: "12", total: "206", icon: BookOpen, percent: 6 },
@@ -18,12 +27,21 @@ const recentParts = [
 ];
 
 export default function Dashboard() {
+  const { profile } = useAuth();
+  const displayName = profile?.username || "Explorer";
+  const greeting = getGreeting(displayName);
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Track your anatomy mastery progress</p>
-      </div>
+      {/* Dynamic time-aware greeting */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{greeting}</h1>
+        <p className="text-muted-foreground text-sm mt-1">Ready to master the Skeletal System?</p>
+      </motion.div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
