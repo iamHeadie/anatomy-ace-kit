@@ -16,6 +16,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useUserState } from "@/hooks/useUserState";
 import { getRank, getRankProgress } from "@/data/rankSystem";
 import { ProfileHeaderHUD } from "@/components/layout/ProfileHeaderHUD";
+import { AppTour, TourTriggerButton } from "@/components/onboarding/AppTour";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -185,8 +186,8 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
               </div>
             </nav>
 
-            {/* ── Bottom: Settings / Profile ── */}
-            <div className="mt-auto flex-shrink-0 pt-4 border-t border-white/10">
+            {/* ── Bottom: Settings / Profile + Tour ── */}
+            <div className="mt-auto flex-shrink-0 pt-4 border-t border-white/10 space-y-1">
               <NavLink
                 to="/profile"
                 onClick={handleNav}
@@ -196,6 +197,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                 <Settings size={15} />
                 Settings &amp; Profile
               </NavLink>
+              <TourTriggerButton />
             </div>
           </motion.aside>
         )}
@@ -236,6 +238,8 @@ export default function AppLayout() {
 
   return (
     <div className="h-screen w-screen overflow-hidden relative bg-background">
+      {/* In-app onboarding tour */}
+      <AppTour />
       {/* 3D Canvas — always full background */}
       <div className="absolute inset-0 z-[1]">
         <AnatomyScene
