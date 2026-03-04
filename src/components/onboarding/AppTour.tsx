@@ -70,7 +70,7 @@ const tourSteps: TourStep[] = [
   {
     title: "Dashboard",
     description:
-      "Your home base. See how many bones you've learned, your quiz scores, study streak, and total study time at a glance. Quick-access links to every section.",
+      "Your home base. See how many bones you've learned, your quiz scores, study streak, and total study time at a glance.",
     icon: LayoutDashboard,
     color: "hsl(168, 76%, 40%)",
     tips: [
@@ -82,20 +82,19 @@ const tourSteps: TourStep[] = [
   {
     title: "Flashcards",
     description:
-      "Study bones with interactive 3D flashcards. Each card shows a live mini-preview of the bone rotating in 3D. Flip the card to reveal the name, Latin name, and key facts.",
+      "Study bones with interactive 3D flashcards. Each card shows a live mini-preview of the bone rotating in 3D. Flip to reveal key facts.",
     icon: Layers,
     color: "hsl(280, 45%, 55%)",
     tips: [
       "Cards auto-rotate the 3D bone model",
       "Flip to test your recall",
-      "Shuffle for random practice",
       "Earn 25 XP per card reviewed",
     ],
   },
   {
     title: "Quiz Mode",
     description:
-      "Test your knowledge with timed quizzes. Answer questions about bone names, regions, and functions. Track your accuracy and earn XP for correct answers.",
+      "Test your knowledge with timed quizzes. Answer questions about bone names, regions, and functions.",
     icon: BookOpen,
     color: "hsl(45, 90%, 60%)",
     tips: [
@@ -107,20 +106,19 @@ const tourSteps: TourStep[] = [
   {
     title: "Profile & Rank System",
     description:
-      "Your profile tracks all progress: XP earned, bones identified, flashcards reviewed, quizzes taken, and your study streak. Climb the ranks from Novice to Diamond!",
+      "Your profile tracks all progress: XP earned, bones identified, flashcards reviewed, and your study streak. Climb the ranks!",
     icon: Trophy,
     color: "hsl(45, 90%, 55%)",
     tips: [
       "Choose your avatar emoji",
       "Set your name, department & role",
-      "Unlock achievements as you learn",
-      "Compete on the leaderboard",
+      "Ranks: Novice → Bronze → Silver → Gold → Platinum → Diamond",
     ],
   },
   {
     title: "Settings & Customisation",
     description:
-      "Access settings from the sidebar menu. Edit your name, avatar, department, and role anytime. Your progress is saved automatically in your browser.",
+      "Access settings from the sidebar. Edit your name, avatar, department, and role anytime. Progress is saved automatically.",
     icon: Settings,
     color: "hsl(215, 20%, 55%)",
     tips: [
@@ -132,14 +130,13 @@ const tourSteps: TourStep[] = [
   {
     title: "XP & Progression",
     description:
-      "Everything you do earns XP. Identifying bones, reviewing flashcards, completing quizzes, and maintaining your daily streak all contribute to your rank.",
+      "Everything you do earns XP. Identifying bones, reviewing flashcards, completing quizzes, and maintaining your streak all contribute.",
     icon: Flame,
     color: "hsl(0, 72%, 51%)",
     tips: [
       "Bone identified: +10 XP",
       "Flashcard reviewed: +25 XP",
       "Daily login streak: +50 XP",
-      "Ranks: Novice → Bronze → Silver → Gold → Platinum → Diamond",
     ],
   },
 ];
@@ -151,7 +148,6 @@ export function AppTour() {
   useEffect(() => {
     const seen = localStorage.getItem(TOUR_STORAGE_KEY);
     if (!seen) {
-      // Small delay so the app renders first
       const t = setTimeout(() => setIsOpen(true), 1200);
       return () => clearTimeout(t);
     }
@@ -163,18 +159,13 @@ export function AppTour() {
   };
 
   const handleNext = () => {
-    if (step < tourSteps.length - 1) {
-      setStep(step + 1);
-    } else {
-      handleClose();
-    }
+    if (step < tourSteps.length - 1) setStep(step + 1);
+    else handleClose();
   };
 
   const handlePrev = () => {
     if (step > 0) setStep(step - 1);
   };
-
-  const handleSkip = () => handleClose();
 
   const current = tourSteps[step];
   const Icon = current.icon;
@@ -190,54 +181,55 @@ export function AppTour() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/60"
+            className="fixed inset-0 z-[200] bg-black/70"
             style={{
-              backdropFilter: "blur(6px)",
-              WebkitBackdropFilter: "blur(6px)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
             }}
-            onClick={handleSkip}
+            onClick={handleClose}
           />
 
-          {/* Tour Card */}
+          {/* Tour Card — flex column with max-height */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+            initial={{ opacity: 0, scale: 0.92, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+            exit={{ opacity: 0, scale: 0.92, y: 24 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[210] max-w-md mx-auto"
+            className="fixed inset-x-3 sm:inset-x-4 top-1/2 -translate-y-1/2 z-[210] max-w-md mx-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="rounded-2xl overflow-hidden"
+              className="rounded-2xl overflow-hidden flex flex-col"
               style={{
+                maxHeight: "88vh",
                 background: "hsl(222, 41%, 11%)",
                 border: "1px solid rgba(255,255,255,0.08)",
                 boxShadow: `0 0 80px ${current.color}20, 0 25px 50px rgba(0,0,0,0.5)`,
               }}
             >
-              {/* Header with icon */}
+              {/* ── Fixed Header: dots + icon + title ── */}
               <div
-                className="relative px-6 pt-8 pb-6 flex flex-col items-center text-center"
+                className="relative px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-5 flex flex-col items-center text-center flex-shrink-0"
                 style={{
                   background: `linear-gradient(180deg, ${current.color}15 0%, transparent 100%)`,
                 }}
               >
-                {/* Close button */}
+                {/* Close */}
                 <button
                   onClick={handleClose}
-                  className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+                  className="absolute top-2.5 right-2.5 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
                 >
                   <X size={16} />
                 </button>
 
-                {/* Step indicator */}
-                <div className="flex items-center gap-1.5 mb-5">
+                {/* Step dots */}
+                <div className="flex items-center gap-1.5 mb-3 sm:mb-4">
                   {tourSteps.map((_, i) => (
                     <div
                       key={i}
                       className="h-1 rounded-full transition-all duration-300"
                       style={{
-                        width: i === step ? 24 : 8,
+                        width: i === step ? 20 : 6,
                         background:
                           i === step
                             ? current.color
@@ -255,56 +247,55 @@ export function AppTour() {
                   initial={{ scale: 0, rotate: -20 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: "spring", damping: 15, stiffness: 200 }}
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center mb-2.5 sm:mb-3"
                   style={{
                     background: `${current.color}18`,
                     border: `1px solid ${current.color}30`,
-                    boxShadow: `0 0 30px ${current.color}20`,
+                    boxShadow: `0 0 24px ${current.color}20`,
                   }}
                 >
-                  <Icon size={28} style={{ color: current.color }} />
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: current.color }} />
                 </motion.div>
 
                 {/* Title */}
                 <motion.h2
                   key={`title-${step}`}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="text-lg font-bold text-foreground"
+                  className="text-base sm:text-lg font-bold text-foreground leading-tight"
                 >
                   {current.title}
                 </motion.h2>
               </div>
 
-              {/* Body */}
-              <div className="px-6 pb-6">
+              {/* ── Scrollable Body ── */}
+              <div className="flex-1 overflow-y-auto min-h-0 px-5 sm:px-6">
                 <motion.p
                   key={`desc-${step}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.15 }}
-                  className="text-sm text-muted-foreground leading-relaxed text-center mb-4"
+                  className="text-xs sm:text-sm text-muted-foreground leading-relaxed text-center mb-3 sm:mb-4"
                 >
                   {current.description}
                 </motion.p>
 
-                {/* Tips */}
                 {current.tips && (
                   <motion.div
                     key={`tips-${step}`}
-                    initial={{ opacity: 0, y: 6 }}
+                    initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className="space-y-2 mb-6"
+                    className="space-y-1.5 sm:space-y-2 pb-2"
                   >
                     {current.tips.map((tip, i) => (
                       <div
                         key={i}
-                        className="flex items-start gap-2.5 text-xs text-secondary-foreground"
+                        className="flex items-start gap-2 text-[11px] sm:text-xs text-secondary-foreground"
                       >
                         <span
-                          className="mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          className="mt-[5px] w-1.5 h-1.5 rounded-full flex-shrink-0"
                           style={{ background: current.color }}
                         />
                         {tip}
@@ -312,8 +303,12 @@ export function AppTour() {
                     ))}
                   </motion.div>
                 )}
+              </div>
 
-                {/* Navigation buttons */}
+              {/* ── Sticky Footer: buttons ── */}
+              <div className="flex-shrink-0 px-5 sm:px-6 pt-3 pb-5 sm:pb-5 border-t border-white/[0.06]"
+                style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
+              >
                 <div className="flex items-center gap-3">
                   {!isFirst && (
                     <button
@@ -327,7 +322,7 @@ export function AppTour() {
 
                   {isFirst && (
                     <button
-                      onClick={handleSkip}
+                      onClick={handleClose}
                       className="px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
                     >
                       Skip tour
@@ -348,8 +343,7 @@ export function AppTour() {
                   </button>
                 </div>
 
-                {/* Step counter */}
-                <p className="text-center text-[10px] text-muted-foreground mt-4">
+                <p className="text-center text-[10px] text-muted-foreground mt-2.5">
                   {step + 1} of {tourSteps.length}
                 </p>
               </div>
