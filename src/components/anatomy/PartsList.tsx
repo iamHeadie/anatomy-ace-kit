@@ -17,10 +17,8 @@ export function PartsList({ selectedPart, onSelectPart, onHoverPart }: PartsList
     return skeletalParts.filter(
       (b) =>
         b.name.toLowerCase().includes(q) ||
-        b.latinName.toLowerCase().includes(q) ||
         b.region.toLowerCase().includes(q) ||
-        b.subregion.toLowerCase().includes(q) ||
-        b.ta98Id.toLowerCase().includes(q)
+        b.subregion.toLowerCase().includes(q)
     );
   }, [search]);
 
@@ -42,7 +40,7 @@ export function PartsList({ selectedPart, onSelectPart, onHoverPart }: PartsList
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Skeletal System</h2>
-            <p className="text-xs text-muted-foreground">{skeletalParts.length} bones · TA98</p>
+            <p className="text-xs text-muted-foreground">{skeletalParts.length} bones</p>
           </div>
         </div>
 
@@ -52,7 +50,7 @@ export function PartsList({ selectedPart, onSelectPart, onHoverPart }: PartsList
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search bones, Latin, TA98…"
+            placeholder="Search bones, region…"
             className="w-full bg-secondary text-sm rounded-md pl-8 pr-3 py-2 text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
           />
         </div>

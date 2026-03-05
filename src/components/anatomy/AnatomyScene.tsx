@@ -1,10 +1,17 @@
 /**
  * AnatomyScene.tsx — Dual-mode 3D skeleton viewer
  *
- * Moveable Mode: OrbitControls enabled (rotate + zoom + pan), hover-highlight, no labels
- * Labelled Mode: Zoom + Pan enabled, Rotation LOCKED (front-facing anatomical position),
- *                CSS-anchored labels on left/right margins with SVG leader lines,
- *                dynamic label visibility based on zoom level
+ * Moveable Mode: OrbitControls enabled (rotate + zoom + pan), hover-highlight, floating label
+ *
+ * Labelled Mode (Atlas View):
+ *   • Dual-Skeleton layout — Anterior (left) + Posterior (right) skeletons side by side
+ *   • Synchronized Pinch-to-Zoom and Pan — both skeletons share a single camera/OrbitControls
+ *   • Rotation LOCKED (front-facing anatomical position)
+ *   • Staggered, tappable side-margin labels with fat-finger-friendly touch targets
+ *   • Leader lines anchored to bone meshes, stable at all zoom levels
+ *   • Clicking any label opens the same ContextPanel used in Floating Mode
+ *   • Both skeletons highlight the selected bone simultaneously
+ *   • No Latin names / TA98 codes anywhere in the label or overlay layer
  */
 
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
@@ -26,6 +33,11 @@ interface AnatomySceneProps {
   drawerOpen: boolean;
   viewerMode: ViewerMode;
 }
+
+// ── Horizontal offset for dual-skeleton layout ─────────────────────────────
+// Each skeleton sits at ±DUAL_OFFSET on the X axis.
+// Keep this in sync with the ChartBoneTracker xOffset values below.
+const DUAL_OFFSET = 3.2;
 
 const SLATE_BG = new THREE.Color("#171720");
 
@@ -95,7 +107,8 @@ function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
 }
 
 // ── Bone projection tracker — inside Canvas ────────────────────────────────
-// Projects 3D bone positions to 2D screen coordinates every frame (when camera moves)
+// Projects 3D bone positions to 2D screen coordinates every frame (when camera moves).
+// xOffset and mirrorX allow it to track bones on the offset/rotated posterior skeleton.
 interface ProjectedPositions {
   positions: Record<string, { x: number; y: number }>;
   cameraZ: number;
@@ -104,9 +117,13 @@ interface ProjectedPositions {
 function ChartBoneTracker({
   bones,
   onUpdate,
+  xOffset = 0,
+  mirrorX = false,
 }: {
   bones: BonePart[];
   onUpdate: (data: ProjectedPositions) => void;
+  xOffset?: number;
+  mirrorX?: boolean;
 }) {
   const { camera, size } = useThree();
   const tempVec = useMemo(() => new THREE.Vector3(), []);
@@ -115,7 +132,6 @@ function ChartBoneTracker({
   useFrame(() => {
     const { x, y, z } = camera.position;
     const prev = prevCamState.current;
-    // Only reproject when camera moves meaningfully
     if (
       Math.abs(x - prev.x) < 0.005 &&
       Math.abs(y - prev.y) < 0.005 &&
@@ -126,7 +142,13 @@ function ChartBoneTracker({
 
     const positions: Record<string, { x: number; y: number }> = {};
     for (const bone of bones) {
-      tempVec.set(bone.position[0], bone.position[1], bone.position[2]);
+      // For posterior skeleton: Y-rotation by π flips X and Z
+      const worldX = mirrorX
+        ? xOffset - bone.position[0]
+        : bone.position[0] + xOffset;
+      const worldZ = mirrorX ? -bone.position[2] : bone.position[2];
+
+      tempVec.set(worldX, bone.position[1], worldZ);
       tempVec.project(camera);
       positions[bone.id] = {
         x: (tempVec.x * 0.5 + 0.5) * size.width,
@@ -140,249 +162,334 @@ function ChartBoneTracker({
 }
 
 // ── Chart label specifications ─────────────────────────────────────────────
-// Each entry maps a bone ID to a panel side and zoom tier.
-// "major" = shown when zoomed out; all shown when zoomed in.
+// Anterior skeleton — labels on the left margin
 interface ChartBoneSpec {
-  /** ID as stored in skeletalParts (may include -L/-R suffix) */
   boneId: string;
-  /** Which margin to anchor the label on */
   panel: "left" | "right";
-  /** Show at all zoom levels (true) or only when zoomed in (false) */
   major: boolean;
 }
 
-const CHART_SPECS: ChartBoneSpec[] = [
-  // ── LEFT MARGIN ── (bones on the body's left side)
-  { boneId: "A02.1.02.001",      panel: "left",  major: true  }, // Skull / Frontal bone
-  { boneId: "A02.1.02.301-L",    panel: "left",  major: false }, // Temporal (left)
-  { boneId: "A02.4.01.001-L",    panel: "left",  major: true  }, // Clavicle (left)
-  { boneId: "A02.4.01.002-L",    panel: "left",  major: false }, // Scapula (left)
-  { boneId: "A02.4.02.001-L",    panel: "left",  major: true  }, // Humerus (left)
-  { boneId: "A02.4.03.001-L",    panel: "left",  major: true  }, // Radius (left)
-  { boneId: "A02.3.02.001-L",    panel: "left",  major: false }, // Rib 1 (left)
-  { boneId: "A02.5.01.101-L",    panel: "left",  major: true  }, // Ilium (left)
-  { boneId: "A02.5.02.001-L",    panel: "left",  major: true  }, // Femur (left)
-  { boneId: "A02.5.02.002-L",    panel: "left",  major: false }, // Patella (left)
-  { boneId: "A02.5.06.001-L",    panel: "left",  major: true  }, // Tibia (left)
-  { boneId: "A02.5.10.001-L",    panel: "left",  major: false }, // Calcaneus (left)
-
-  // ── RIGHT MARGIN ── (midline + body-right bones)
+const CHART_SPECS_ANTERIOR: ChartBoneSpec[] = [
+  { boneId: "A02.1.02.001",      panel: "left",  major: true  }, // Frontal bone
+  { boneId: "A02.1.02.301-L",    panel: "left",  major: false }, // Temporal (L)
+  { boneId: "A02.4.01.001-L",    panel: "left",  major: true  }, // Clavicle (L)
+  { boneId: "A02.4.02.001-L",    panel: "left",  major: true  }, // Humerus (L)
+  { boneId: "A02.4.03.001-L",    panel: "left",  major: true  }, // Radius (L)
+  { boneId: "A02.4.03.002-L",    panel: "left",  major: false }, // Ulna (L)
+  { boneId: "A02.5.01.101-L",    panel: "left",  major: true  }, // Ilium (L)
+  { boneId: "A02.5.02.001-L",    panel: "left",  major: true  }, // Femur (L)
+  { boneId: "A02.5.02.002-L",    panel: "left",  major: false }, // Patella (L)
+  { boneId: "A02.5.06.001-L",    panel: "left",  major: true  }, // Tibia (L)
+  { boneId: "A02.5.10.001-L",    panel: "left",  major: false }, // Calcaneus (L)
+  // Right-side margin for anterior (midline bones)
   { boneId: "A02.1.03.701",      panel: "right", major: true  }, // Mandible
-  { boneId: "A02.1.00.027",      panel: "right", major: false }, // Hyoid
   { boneId: "A02.3.01.001",      panel: "right", major: true  }, // Sternum
   { boneId: "A02.2.02.001",      panel: "right", major: false }, // Atlas C1
-  { boneId: "A02.2.02.301",      panel: "right", major: false }, // C7
+  { boneId: "A02.1.00.027",      panel: "right", major: false }, // Hyoid
+  { boneId: "A02.3.02.001-L",    panel: "right", major: false }, // Rib 1
+  { boneId: "A02.5.01.301-L",    panel: "right", major: false }, // Pubis (L)
+];
+
+// Posterior skeleton — labels on the right margin
+const CHART_SPECS_POSTERIOR: ChartBoneSpec[] = [
+  { boneId: "A02.1.02.201",      panel: "right", major: true  }, // Occipital
+  { boneId: "A02.4.01.002-L",    panel: "right", major: true  }, // Scapula (L)
+  { boneId: "A02.4.02.001-L",    panel: "right", major: true  }, // Humerus (L)
+  { boneId: "A02.4.03.002-L",    panel: "right", major: true  }, // Ulna (L)
   { boneId: "A02.2.03.001",      panel: "right", major: false }, // T1
   { boneId: "A02.2.04.003",      panel: "right", major: false }, // L3
-  { boneId: "A02.2.05.001",      panel: "right", major: false }, // Sacrum
+  { boneId: "A02.2.05.001",      panel: "right", major: true  }, // Sacrum
   { boneId: "A02.2.06.001",      panel: "right", major: false }, // Coccyx
-  { boneId: "A02.4.03.002-L",    panel: "right", major: true  }, // Ulna (left)
-  { boneId: "A02.5.06.002-L",    panel: "right", major: true  }, // Fibula (left)
-  { boneId: "A02.5.10.002-L",    panel: "right", major: false }, // Talus (left)
+  { boneId: "A02.5.01.101-L",    panel: "right", major: true  }, // Ilium (L)
+  { boneId: "A02.5.06.002-L",    panel: "right", major: true  }, // Fibula (L)
+  { boneId: "A02.5.10.001-L",    panel: "right", major: true  }, // Calcaneus (L)
+  { boneId: "A02.5.10.002-L",    panel: "right", major: false }, // Talus (L)
+];
+
+// Legacy single-skeleton specs (used in non-dual labelled mode — same as before)
+const CHART_SPECS: ChartBoneSpec[] = [
+  { boneId: "A02.1.02.001",      panel: "left",  major: true  },
+  { boneId: "A02.1.02.301-L",    panel: "left",  major: false },
+  { boneId: "A02.4.01.001-L",    panel: "left",  major: true  },
+  { boneId: "A02.4.01.002-L",    panel: "left",  major: false },
+  { boneId: "A02.4.02.001-L",    panel: "left",  major: true  },
+  { boneId: "A02.4.03.001-L",    panel: "left",  major: true  },
+  { boneId: "A02.3.02.001-L",    panel: "left",  major: false },
+  { boneId: "A02.5.01.101-L",    panel: "left",  major: true  },
+  { boneId: "A02.5.02.001-L",    panel: "left",  major: true  },
+  { boneId: "A02.5.02.002-L",    panel: "left",  major: false },
+  { boneId: "A02.5.06.001-L",    panel: "left",  major: true  },
+  { boneId: "A02.5.10.001-L",    panel: "left",  major: false },
+  { boneId: "A02.1.03.701",      panel: "right", major: true  },
+  { boneId: "A02.1.00.027",      panel: "right", major: false },
+  { boneId: "A02.3.01.001",      panel: "right", major: true  },
+  { boneId: "A02.2.02.001",      panel: "right", major: false },
+  { boneId: "A02.2.02.301",      panel: "right", major: false },
+  { boneId: "A02.2.03.001",      panel: "right", major: false },
+  { boneId: "A02.2.04.003",      panel: "right", major: false },
+  { boneId: "A02.2.05.001",      panel: "right", major: false },
+  { boneId: "A02.2.06.001",      panel: "right", major: false },
+  { boneId: "A02.4.03.002-L",    panel: "right", major: true  },
+  { boneId: "A02.5.06.002-L",    panel: "right", major: true  },
+  { boneId: "A02.5.10.002-L",    panel: "right", major: false },
 ];
 
 // ── Anatomical Chart Overlay — outside Canvas ──────────────────────────────
-// Renders CSS-anchored labels on left/right margins with SVG leader lines.
 interface AnatomicalChartOverlayProps {
-  projectedData: ProjectedPositions | null;
+  projectedDataAnterior: ProjectedPositions | null;
+  projectedDataPosterior: ProjectedPositions | null;
   containerWidth: number;
   containerHeight: number;
+  isDualSkeleton: boolean;
+  onSelectBone: (bone: BonePart) => void;
+  selectedBoneId: string | null;
 }
 
-function AnatomicalChartOverlay({ projectedData, containerWidth, containerHeight }: AnatomicalChartOverlayProps) {
-  if (!projectedData || containerWidth === 0 || containerHeight === 0) return null;
+function AnatomicalChartOverlay({
+  projectedDataAnterior,
+  projectedDataPosterior,
+  containerWidth,
+  containerHeight,
+  isDualSkeleton,
+  onSelectBone,
+  selectedBoneId,
+}: AnatomicalChartOverlayProps) {
+  if (!projectedDataAnterior || containerWidth === 0 || containerHeight === 0) return null;
 
-  const { positions, cameraZ } = projectedData;
-  // Zoomed out when camera z is large; show only major labels
-  const isZoomedOut = cameraZ > 8;
+  const { cameraZ } = projectedDataAnterior;
+  const isZoomedOut = cameraZ > (isDualSkeleton ? 12 : 8);
 
-  // Resolve which bones to show based on zoom level
-  const activeBones = useMemo(() => {
-    const result: { bone: BonePart; spec: ChartBoneSpec }[] = [];
-    for (const spec of CHART_SPECS) {
-      if (isZoomedOut && !spec.major) continue;
+  const anteriorPositions = projectedDataAnterior.positions;
+  const posteriorPositions = projectedDataPosterior?.positions ?? {};
+
+  // ── Resolve active bone sets ─────────────────────────────────────────────
+  const activeAnteriorLeft = useMemo(() => {
+    const specs = isDualSkeleton ? CHART_SPECS_ANTERIOR.filter(s => s.panel === "left") : CHART_SPECS.filter(s => s.panel === "left");
+    return specs.flatMap((spec) => {
+      if (isZoomedOut && !spec.major) return [];
       const bone = skeletalParts.find((b) => b.id === spec.boneId);
-      if (bone && positions[bone.id]) {
-        result.push({ bone, spec });
-      }
-    }
-    return result;
-  }, [isZoomedOut, positions]);
+      if (bone && anteriorPositions[bone.id]) return [{ bone, spec }];
+      return [];
+    });
+  }, [isZoomedOut, anteriorPositions, isDualSkeleton]);
 
-  const leftBones  = activeBones.filter((b) => b.spec.panel === "left");
-  const rightBones = activeBones.filter((b) => b.spec.panel === "right");
+  // For single-skeleton mode, right labels also track anterior
+  const activeAnteriorRight = useMemo(() => {
+    if (isDualSkeleton) return [];
+    return CHART_SPECS.filter(s => s.panel === "right").flatMap((spec) => {
+      if (isZoomedOut && !spec.major) return [];
+      const bone = skeletalParts.find((b) => b.id === spec.boneId);
+      if (bone && anteriorPositions[bone.id]) return [{ bone, spec }];
+      return [];
+    });
+  }, [isZoomedOut, anteriorPositions, isDualSkeleton]);
 
-  // Vertical distribution: evenly space labels across the usable height
+  const activePosteriorRight = useMemo(() => {
+    if (!isDualSkeleton) return [];
+    return CHART_SPECS_POSTERIOR.filter(s => s.panel === "right").flatMap((spec) => {
+      if (isZoomedOut && !spec.major) return [];
+      const bone = skeletalParts.find((b) => b.id === spec.boneId);
+      if (bone && posteriorPositions[bone.id]) return [{ bone, spec }];
+      return [];
+    });
+  }, [isZoomedOut, posteriorPositions, isDualSkeleton]);
+
+  // ── Layout constants ─────────────────────────────────────────────────────
   const MARGIN_TOP    = containerHeight * 0.06;
   const MARGIN_BOTTOM = containerHeight * 0.06;
   const usableH       = containerHeight - MARGIN_TOP - MARGIN_BOTTOM;
+  const STAGGER_PX    = 6; // vertical stagger for alternating labels (mobile ergonomics)
 
-  const getY = (index: number, total: number) =>
-    total <= 1
+  const getY = (index: number, total: number, stagger = true): number => {
+    const base = total <= 1
       ? containerHeight / 2
       : MARGIN_TOP + (index / (total - 1)) * usableH;
+    return stagger ? base + (index % 2 === 0 ? -STAGGER_PX : STAGGER_PX) : base;
+  };
 
-  const LABEL_MARGIN_X = 8; // px from screen edge to label box
+  const LABEL_MARGIN_X = 6; // px from screen edge to outer label edge
   const LINE_COLOR     = "rgba(56,189,248,0.45)";
   const DOT_COLOR      = "rgba(14,165,233,0.9)";
+  const SEL_LINE_COLOR = "rgba(56,189,248,0.85)";
+  const SEL_DOT_COLOR  = "rgba(14,165,233,1.0)";
+
+  // ── Shared label button renderer ──────────────────────────────────────────
+  const renderLabel = (
+    bone: BonePart,
+    labelY: number,
+    side: "left" | "right",
+  ) => {
+    const displayName = bone.name.replace(/^(Left|Right)\s/, "");
+    const isSelected = selectedBoneId === bone.id;
+    return (
+      <div
+        key={`label-${bone.id}`}
+        style={{
+          position: "absolute",
+          [side]: LABEL_MARGIN_X,
+          top: labelY,
+          transform: "translateY(-50%)",
+          maxWidth: 160,
+          textAlign: side === "left" ? "right" : "left",
+          zIndex: 6,
+        }}
+      >
+        <button
+          onClick={() => onSelectBone(bone)}
+          aria-label={`Select ${bone.name}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            fontSize: "clamp(9px, 1.8vw, 11px)",
+            fontWeight: isSelected ? 700 : 600,
+            color: isSelected ? "#38bdf8" : "#e0f2fe",
+            background: isSelected
+              ? "rgba(14, 165, 233, 0.22)"
+              : "rgba(8, 14, 30, 0.72)",
+            padding: "6px 10px",       // fat-finger touch target
+            minHeight: "32px",          // minimum 32 px height for accessibility
+            minWidth: "44px",           // minimum touch target width
+            borderRadius: 6,
+            whiteSpace: "nowrap",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            border: isSelected
+              ? "1px solid rgba(56,189,248,0.6)"
+              : "1px solid rgba(56,189,248,0.22)",
+            lineHeight: 1.4,
+            letterSpacing: "0.01em",
+            cursor: "pointer",
+            pointerEvents: "auto",
+            transition: "color 0.15s, background 0.15s, border-color 0.15s",
+            outline: "none",
+            WebkitTapHighlightColor: "transparent",
+          }}
+          onMouseEnter={(e) => {
+            if (!isSelected) {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(14, 165, 233, 0.16)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#7dd3fc";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isSelected) {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(8, 14, 30, 0.72)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#e0f2fe";
+            }
+          }}
+        >
+          {displayName}
+        </button>
+      </div>
+    );
+  };
+
+  // ── SVG leader line renderer ──────────────────────────────────────────────
+  const renderLeaderLine = (
+    bone: BonePart,
+    labelY: number,
+    side: "left" | "right",
+    boneScreenPos: { x: number; y: number },
+  ) => {
+    const isSelected = selectedBoneId === bone.id;
+    const lineColor = isSelected ? SEL_LINE_COLOR : LINE_COLOR;
+    const dotColor  = isSelected ? SEL_DOT_COLOR  : DOT_COLOR;
+    const dotR      = isSelected ? 4 : 3;
+
+    if (side === "left") {
+      const labelRight = LABEL_MARGIN_X + 168;
+      return (
+        <g key={`line-${bone.id}`}>
+          <line x1={labelRight} y1={labelY} x2={boneScreenPos.x} y2={labelY}
+            stroke={lineColor} strokeWidth={isSelected ? 1.5 : 1} strokeDasharray="3 3" />
+          <line x1={boneScreenPos.x} y1={labelY} x2={boneScreenPos.x} y2={boneScreenPos.y}
+            stroke={lineColor} strokeWidth={isSelected ? 1.5 : 1} strokeDasharray="3 3" />
+          <circle cx={boneScreenPos.x} cy={boneScreenPos.y} r={dotR} fill={dotColor} />
+        </g>
+      );
+    } else {
+      const labelLeft = containerWidth - LABEL_MARGIN_X - 168;
+      return (
+        <g key={`line-${bone.id}`}>
+          <line x1={labelLeft} y1={labelY} x2={boneScreenPos.x} y2={labelY}
+            stroke={lineColor} strokeWidth={isSelected ? 1.5 : 1} strokeDasharray="3 3" />
+          <line x1={boneScreenPos.x} y1={labelY} x2={boneScreenPos.x} y2={boneScreenPos.y}
+            stroke={lineColor} strokeWidth={isSelected ? 1.5 : 1} strokeDasharray="3 3" />
+          <circle cx={boneScreenPos.x} cy={boneScreenPos.y} r={dotR} fill={dotColor} />
+        </g>
+      );
+    }
+  };
 
   return (
     <div
-      className="absolute inset-0 pointer-events-none"
-      style={{ zIndex: 5, overflow: "hidden" }}
+      className="absolute inset-0"
+      style={{ zIndex: 5, overflow: "hidden", pointerEvents: "none" }}
     >
-      {/* Full-viewport SVG for leader lines */}
+      {/* Full-viewport SVG for leader lines — pointer-events:none so labels stay tappable */}
       <svg
         width={containerWidth}
         height={containerHeight}
         style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       >
-        {/* Left panel leader lines */}
-        {leftBones.map(({ bone }, i) => {
-          const boneScreen = positions[bone.id];
-          if (!boneScreen) return null;
-          const labelY = getY(i, leftBones.length);
-          const labelRight = LABEL_MARGIN_X + 160; // label box right edge (x=168)
-          return (
-            <g key={bone.id}>
-              {/* Horizontal dashed line from label to bone projection */}
-              <line
-                x1={labelRight}
-                y1={labelY}
-                x2={boneScreen.x}
-                y2={labelY}
-                stroke={LINE_COLOR}
-                strokeWidth="1"
-                strokeDasharray="3 3"
-              />
-              {/* Diagonal connector from horizontal line end to bone position */}
-              <line
-                x1={boneScreen.x}
-                y1={labelY}
-                x2={boneScreen.x}
-                y2={boneScreen.y}
-                stroke={LINE_COLOR}
-                strokeWidth="1"
-                strokeDasharray="3 3"
-              />
-              <circle cx={boneScreen.x} cy={boneScreen.y} r="3" fill={DOT_COLOR} />
-            </g>
-          );
+        {/* Dual-skeleton divider */}
+        {isDualSkeleton && (
+          <>
+            <line
+              x1={containerWidth / 2} y1={containerHeight * 0.06}
+              x2={containerWidth / 2} y2={containerHeight * 0.94}
+              stroke="rgba(56,189,248,0.12)" strokeWidth="1" strokeDasharray="6 6"
+            />
+            <text x={containerWidth / 4} y={containerHeight * 0.04}
+              fill="rgba(148,163,184,0.5)" fontSize="9" textAnchor="middle"
+              fontFamily="system-ui,sans-serif" letterSpacing="0.08em">
+              ANTERIOR
+            </text>
+            <text x={containerWidth * 3 / 4} y={containerHeight * 0.04}
+              fill="rgba(148,163,184,0.5)" fontSize="9" textAnchor="middle"
+              fontFamily="system-ui,sans-serif" letterSpacing="0.08em">
+              POSTERIOR
+            </text>
+          </>
+        )}
+
+        {/* Left margin leader lines — anterior skeleton */}
+        {activeAnteriorLeft.map(({ bone }, i) => {
+          const pos = anteriorPositions[bone.id];
+          if (!pos) return null;
+          return renderLeaderLine(bone, getY(i, activeAnteriorLeft.length), "left", pos);
         })}
 
-        {/* Right panel leader lines */}
-        {rightBones.map(({ bone }, i) => {
-          const boneScreen = positions[bone.id];
-          if (!boneScreen) return null;
-          const labelY = getY(i, rightBones.length);
-          const labelLeft = containerWidth - LABEL_MARGIN_X - 160; // label box left edge
-          return (
-            <g key={bone.id}>
-              <line
-                x1={labelLeft}
-                y1={labelY}
-                x2={boneScreen.x}
-                y2={labelY}
-                stroke={LINE_COLOR}
-                strokeWidth="1"
-                strokeDasharray="3 3"
-              />
-              <line
-                x1={boneScreen.x}
-                y1={labelY}
-                x2={boneScreen.x}
-                y2={boneScreen.y}
-                stroke={LINE_COLOR}
-                strokeWidth="1"
-                strokeDasharray="3 3"
-              />
-              <circle cx={boneScreen.x} cy={boneScreen.y} r="3" fill={DOT_COLOR} />
-            </g>
-          );
+        {/* Right margin leader lines — single-skeleton anterior */}
+        {activeAnteriorRight.map(({ bone }, i) => {
+          const pos = anteriorPositions[bone.id];
+          if (!pos) return null;
+          return renderLeaderLine(bone, getY(i, activeAnteriorRight.length), "right", pos);
+        })}
+
+        {/* Right margin leader lines — dual-skeleton posterior */}
+        {activePosteriorRight.map(({ bone }, i) => {
+          const pos = posteriorPositions[bone.id];
+          if (!pos) return null;
+          return renderLeaderLine(bone, getY(i, activePosteriorRight.length), "right", pos);
         })}
       </svg>
 
-      {/* Left margin labels */}
-      {leftBones.map(({ bone }, i) => {
-        const labelY = getY(i, leftBones.length);
-        const displayName = bone.name.replace(/^(Left|Right)\s/, "");
-        return (
-          <div
-            key={bone.id}
-            style={{
-              position: "absolute",
-              left: LABEL_MARGIN_X,
-              top: labelY,
-              transform: "translateY(-50%)",
-              maxWidth: 155,
-              textAlign: "right",
-              paddingRight: 6,
-            }}
-          >
-            <span
-              style={{
-                display: "inline-block",
-                fontSize: "clamp(9px, 1.8vw, 11px)",
-                fontWeight: 600,
-                color: "#e0f2fe",
-                background: "rgba(8, 14, 30, 0.72)",
-                padding: "2px 7px",
-                borderRadius: 4,
-                whiteSpace: "nowrap",
-                backdropFilter: "blur(6px)",
-                WebkitBackdropFilter: "blur(6px)",
-                border: "1px solid rgba(56,189,248,0.22)",
-                lineHeight: 1.5,
-                letterSpacing: "0.01em",
-              }}
-            >
-              {displayName}
-            </span>
-          </div>
-        );
-      })}
+      {/* ── Left margin labels (pointer-events: auto on individual buttons) ─── */}
+      {activeAnteriorLeft.map(({ bone }, i) =>
+        renderLabel(bone, getY(i, activeAnteriorLeft.length), "left")
+      )}
 
-      {/* Right margin labels */}
-      {rightBones.map(({ bone }, i) => {
-        const labelY = getY(i, rightBones.length);
-        const displayName = bone.name.replace(/^(Left|Right)\s/, "");
-        return (
-          <div
-            key={bone.id}
-            style={{
-              position: "absolute",
-              right: LABEL_MARGIN_X,
-              top: labelY,
-              transform: "translateY(-50%)",
-              maxWidth: 155,
-              textAlign: "left",
-              paddingLeft: 6,
-            }}
-          >
-            <span
-              style={{
-                display: "inline-block",
-                fontSize: "clamp(9px, 1.8vw, 11px)",
-                fontWeight: 600,
-                color: "#e0f2fe",
-                background: "rgba(8, 14, 30, 0.72)",
-                padding: "2px 7px",
-                borderRadius: 4,
-                whiteSpace: "nowrap",
-                backdropFilter: "blur(6px)",
-                WebkitBackdropFilter: "blur(6px)",
-                border: "1px solid rgba(56,189,248,0.22)",
-                lineHeight: 1.5,
-                letterSpacing: "0.01em",
-              }}
-            >
-              {displayName}
-            </span>
-          </div>
-        );
-      })}
+      {/* ── Right margin labels — single-skeleton ────────────────────────── */}
+      {activeAnteriorRight.map(({ bone }, i) =>
+        renderLabel(bone, getY(i, activeAnteriorRight.length), "right")
+      )}
 
-      {/* Zoom hint badge */}
+      {/* ── Right margin labels — posterior skeleton ─────────────────────── */}
+      {activePosteriorRight.map(({ bone }, i) =>
+        renderLabel(bone, getY(i, activePosteriorRight.length), "right")
+      )}
+
+      {/* Zoom / interaction hint */}
       {isZoomedOut && (
         <div
           style={{
@@ -401,15 +508,20 @@ function AnatomicalChartOverlay({ projectedData, containerWidth, containerHeight
             pointerEvents: "none",
           }}
         >
-          Pinch or scroll to zoom · Pan to explore
+          Tap a label to explore · Pinch or scroll to zoom · Pan to compare
         </div>
       )}
     </div>
   );
 }
 
-// Resolve all chart bones once at module level for the tracker
-const CHART_BONES: BonePart[] = CHART_SPECS.flatMap((spec) => {
+// ── Resolve all bones for trackers at module level ─────────────────────────
+const CHART_BONES_ANTERIOR = [...CHART_SPECS_ANTERIOR, ...CHART_SPECS].flatMap((spec) => {
+  const bone = skeletalParts.find((b) => b.id === spec.boneId);
+  return bone ? [bone] : [];
+}).filter((b, i, arr) => arr.findIndex(x => x.id === b.id) === i); // dedupe
+
+const CHART_BONES_POSTERIOR = CHART_SPECS_POSTERIOR.flatMap((spec) => {
   const bone = skeletalParts.find((b) => b.id === spec.boneId);
   return bone ? [bone] : [];
 });
@@ -420,7 +532,6 @@ export function AnatomyScene({
 }: AnatomySceneProps) {
   const isLabelled = viewerMode === "labelled";
 
-  // Container size for the SVG overlay calculations
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
 
@@ -435,20 +546,21 @@ export function AnatomyScene({
     return () => ro.disconnect();
   }, []);
 
-  // Projected positions — written by ChartBoneTracker inside Canvas,
-  // read by AnatomicalChartOverlay outside Canvas.
-  const [projectedData, setProjectedData] = useState<ProjectedPositions | null>(null);
-  const handleProjectionUpdate = useCallback((data: ProjectedPositions) => {
-    setProjectedData(data);
-  }, []);
+  // Two separate projected-position states: anterior (left) and posterior (right)
+  const [projectedDataAnterior, setProjectedDataAnterior] = useState<ProjectedPositions | null>(null);
+  const [projectedDataPosterior, setProjectedDataPosterior] = useState<ProjectedPositions | null>(null);
+
+  const handleAnteriorUpdate = useCallback((d: ProjectedPositions) => setProjectedDataAnterior(d), []);
+  const handlePosteriorUpdate = useCallback((d: ProjectedPositions) => setProjectedDataPosterior(d), []);
+
+  // Camera settings differ between modes
+  const cameraZ    = isLabelled ? 18 : 12;
+  const cameraPos: [number, number, number] = [0, 0.65, cameraZ];
 
   return (
     <div ref={containerRef} className="w-full h-full" style={{ position: "relative" }}>
       <Canvas
-        camera={{
-          position: isLabelled ? [0, 0.65, 14] : [0, 0.65, 12],
-          fov: 45,
-        }}
+        camera={{ position: cameraPos, fov: 45 }}
         dpr={[1, 2]}
         style={{ touchAction: "none", background: "#171720" }}
       >
@@ -470,23 +582,72 @@ export function AnatomyScene({
           <directionalLight position={[0, 6, -8]} intensity={0.6} color="#ffe0a0" />
           <pointLight position={[0, 2, 3]} intensity={0.35} color="#14b8a6" distance={12} decay={2} />
 
-          <Bounds fit clip observe margin={1.4}>
-            <SkeletonViewer
-              selectedPart={selectedPart}
-              hoveredPart={hoveredPart}
-              onSelectPart={onSelectPart}
-              onHoverPart={onHoverPart}
-              onClearSelection={onClearSelection}
-              onOpenDrawer={onOpenDrawer}
-              viewerMode={viewerMode}
-            />
+          <Bounds fit clip observe margin={isLabelled ? 1.1 : 1.4}>
+            {isLabelled ? (
+              <>
+                {/* ── Anterior skeleton — left half ────────────────────── */}
+                <SkeletonViewer
+                  selectedPart={selectedPart}
+                  hoveredPart={hoveredPart}
+                  onSelectPart={onSelectPart}
+                  onHoverPart={onHoverPart}
+                  onClearSelection={onClearSelection}
+                  onOpenDrawer={onOpenDrawer}
+                  viewerMode={viewerMode}
+                  xOffset={-DUAL_OFFSET}
+                  yRotation={0}
+                  disableInteraction={true}
+                />
 
-            {/* Project bone positions to screen space when in labelled mode */}
-            {isLabelled && (
-              <ChartBoneTracker
-                bones={CHART_BONES}
-                onUpdate={handleProjectionUpdate}
-              />
+                {/* ── Posterior skeleton — right half (rotated π) ───────── */}
+                <SkeletonViewer
+                  selectedPart={selectedPart}
+                  hoveredPart={hoveredPart}
+                  onSelectPart={onSelectPart}
+                  onHoverPart={onHoverPart}
+                  onClearSelection={onClearSelection}
+                  onOpenDrawer={onOpenDrawer}
+                  viewerMode={viewerMode}
+                  xOffset={DUAL_OFFSET}
+                  yRotation={Math.PI}
+                  disableInteraction={true}
+                />
+
+                {/* Anterior projection tracker */}
+                <ChartBoneTracker
+                  bones={CHART_BONES_ANTERIOR}
+                  onUpdate={handleAnteriorUpdate}
+                  xOffset={-DUAL_OFFSET}
+                  mirrorX={false}
+                />
+
+                {/* Posterior projection tracker (Y-rotation = π mirrors X) */}
+                <ChartBoneTracker
+                  bones={CHART_BONES_POSTERIOR}
+                  onUpdate={handlePosteriorUpdate}
+                  xOffset={DUAL_OFFSET}
+                  mirrorX={true}
+                />
+              </>
+            ) : (
+              <>
+                <SkeletonViewer
+                  selectedPart={selectedPart}
+                  hoveredPart={hoveredPart}
+                  onSelectPart={onSelectPart}
+                  onHoverPart={onHoverPart}
+                  onClearSelection={onClearSelection}
+                  onOpenDrawer={onOpenDrawer}
+                  viewerMode={viewerMode}
+                />
+
+                {isLabelled && (
+                  <ChartBoneTracker
+                    bones={CHART_BONES_ANTERIOR}
+                    onUpdate={handleAnteriorUpdate}
+                  />
+                )}
+              </>
             )}
 
             <AutoFramer selectedPart={selectedPart} />
@@ -497,11 +658,9 @@ export function AnatomyScene({
           <OrbitControls
             enablePan={true}
             enableZoom={true}
-            // In labelled mode: lock rotation to maintain front-facing anatomical position
-            // In moveable mode: full rotation enabled
             enableRotate={!isLabelled}
             minDistance={1.5}
-            maxDistance={22}
+            maxDistance={28}
             target={[0, 0.65, 0]}
             makeDefault
           />
@@ -510,12 +669,16 @@ export function AnatomyScene({
         </Suspense>
       </Canvas>
 
-      {/* CSS-anchored anatomical chart labels overlay (labelled mode only) */}
+      {/* ── Anatomical chart overlay — labelled mode only ─────────────────── */}
       {isLabelled && (
         <AnatomicalChartOverlay
-          projectedData={projectedData}
+          projectedDataAnterior={projectedDataAnterior}
+          projectedDataPosterior={projectedDataPosterior}
           containerWidth={containerSize.w}
           containerHeight={containerSize.h}
+          isDualSkeleton={true}
+          onSelectBone={onSelectPart}
+          selectedBoneId={selectedPart?.id ?? null}
         />
       )}
     </div>

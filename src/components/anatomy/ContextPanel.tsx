@@ -14,14 +14,14 @@ interface ContextPanelProps {
 // ── Spotter Quiz Generator (uses TA98 data) ──────────────────────────────
 function generateSpotterQuestions(targetBone: BonePart) {
   const allBones = ta98Bones.filter((b) => b.id !== targetBone.ta98Id);
-  const sameRegion = allBones.filter((b) => b.region === targetBone.region);
 
   return [
-    // Q1: Latin name
+    // Q1: Bilateral status
     (() => {
-      const distractors = [...allBones].sort(() => Math.random() - 0.5).slice(0, 3);
-      const options = [...distractors.map((d) => d.name_la), targetBone.latinName.replace(/\s*\(.*\)$/, "")].sort(() => Math.random() - 0.5);
-      return { question: `What is the Latin name of the ${targetBone.name}?`, options, answer: targetBone.latinName.replace(/\s*\(.*\)$/, "") };
+      const answer = targetBone.bilateral ? "Bilateral (paired)" : "Unpaired (midline)";
+      const wrong = targetBone.bilateral ? ["Unpaired (midline)", "Axial only", "Cranial only"] : ["Bilateral (paired)", "Mirrored pair", "Lateral pair"];
+      const options = [...wrong.slice(0, 3), answer].sort(() => Math.random() - 0.5);
+      return { question: `Is the ${targetBone.name} a paired or unpaired bone?`, options, answer };
     })(),
     // Q2: Region
     (() => {

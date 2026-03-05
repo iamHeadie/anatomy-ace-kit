@@ -24,7 +24,6 @@ export function PartDetailPanel({ part, onClose, onSelectPart }: PartDetailPanel
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-lg font-semibold text-foreground">{part.name}</h2>
-              <p className="text-sm font-mono text-primary italic">{part.latinName}</p>
             </div>
             <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
               <X size={18} />

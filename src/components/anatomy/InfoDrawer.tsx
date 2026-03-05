@@ -51,14 +51,15 @@ function generateSpotterQuestions(targetBone: BonePart) {
   const allBones = skeletalParts.filter((b) => b.id !== targetBone.id);
 
   const q1 = (() => {
-    const distractors = allBones.sort(() => Math.random() - 0.5).slice(0, 3);
-    const options = [...distractors.map((d) => d.latinName), targetBone.latinName].sort(
-      () => Math.random() - 0.5
-    );
+    const answer = targetBone.bilateral ? "Bilateral (paired)" : "Unpaired (midline)";
+    const wrong = targetBone.bilateral
+      ? ["Unpaired (midline)", "Axial only", "Cranial only"]
+      : ["Bilateral (paired)", "Mirrored pair", "Lateral pair"];
+    const options = [...wrong.slice(0, 3), answer].sort(() => Math.random() - 0.5);
     return {
-      question: `What is the Latin name of the ${targetBone.name}?`,
+      question: `Is the ${targetBone.name} a paired or unpaired bone?`,
       options,
-      answer: targetBone.latinName,
+      answer,
     };
   })();
 
