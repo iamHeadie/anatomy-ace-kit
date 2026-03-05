@@ -7,6 +7,7 @@ import { useGLTF, Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
+import type { ViewerMode } from "@/contexts/ViewModeContext";
 import { boneMap } from "@/data/modelRegistry";
 
 interface SkeletonViewerProps {
@@ -16,6 +17,7 @@ interface SkeletonViewerProps {
   onHoverPart: (id: string | null) => void;
   onClearSelection: () => void;
   onOpenDrawer: () => void;
+  viewerMode?: ViewerMode;
 }
 
 const SELECTION_COLOR    = new THREE.Color("#00bfff");
@@ -125,7 +127,7 @@ function FloatingBoneLabel({ part, skullTopY, onOpenDrawer }: {
 }
 
 export function SkeletonViewer({
-  selectedPart, hoveredPart, onSelectPart, onHoverPart, onClearSelection, onOpenDrawer,
+  selectedPart, hoveredPart, onSelectPart, onHoverPart, onClearSelection, onOpenDrawer, viewerMode = "moveable",
 }: SkeletonViewerProps) {
   const { scene } = useGLTF("/models/skeleton.glb");
   const { gl, camera } = useThree();
@@ -287,7 +289,7 @@ export function SkeletonViewer({
   return (
     <group ref={groupRef}>
       <primitive object={preparedScene} />
-      {selectedPart && (
+      {selectedPart && viewerMode === "moveable" && (
         <FloatingBoneLabel part={selectedPart} skullTopY={skullTopY} onOpenDrawer={onOpenDrawer} />
       )}
     </group>

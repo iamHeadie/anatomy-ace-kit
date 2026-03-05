@@ -199,7 +199,6 @@ function generateFacts(bone: TA98Bone): string[] {
   facts.push(`Subregion: ${bone.subregion}`);
   if (bone.bilateral) facts.push("Bilateral (paired) bone");
   else facts.push("Unpaired (midline) bone");
-  facts.push(`TA98 Code: ${bone.id}`);
   return facts;
 }
 
