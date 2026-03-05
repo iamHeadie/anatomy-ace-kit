@@ -1,455 +1,147 @@
 /**
- * modelRegistry.js — GLB Mesh Name → Skeletal System ID Mapping
+ * modelRegistry.js — GLB Mesh Name → TA98 Bone ID Mapping
  *
- * ═══════════════════════════════════════════════════════════════════════════
- * SKELETON.GLB ANALYSIS (automated binary inspection, 2026-02-28)
- * ═══════════════════════════════════════════════════════════════════════════
+ * Maps Three.js mesh names from skeleton.glb to TA98 standard IDs.
+ * 
+ * skeleton.glb has 2 merged meshes: sub01 (full skeleton) and sub02 (ribs).
+ * These are NOT in boneMap — the position-based fallback handles them.
  *
- * The file at /public/models/skeleton.glb contains exactly 2 mesh nodes.
- * It was converted from OBJ via obj2gltf. Coordinates: Y-up, 1 unit ≈ 2.5 cm.
- * Full skeleton: Y −43 (soles of feet) → Y +24 (skull vertex), height ≈ 170 cm.
- *
- * ┌──────────────────────────────────────────────────────────────────────────┐
- * │  Node name │ glTF mesh  │ Primitives │ event.object.name (Three.js)     │
- * ├──────────────────────────────────────────────────────────────────────────┤
- * │  sub01     │ sub01_1    │     3      │ 'sub01'  (all 3 child meshes)    │
- * │  sub02     │ sub02_1    │     1      │ 'sub02'                           │
- * └──────────────────────────────────────────────────────────────────────────┘
- *
- * ── sub01  (25,947 + 15,812 + 6,553 = 48,312 total vertices) ────────────────
- *
- *   Primitive 0  material: Bones___Vray  (25,947 verts)
- *     FULL SKELETON BONES  –  compact cortical bone surface for every bone
- *     Y: −42.99 → +23.96  (entire height, feet to skull vertex)
- *     X: −10.86 → +10.68  (full lateral width, arms included)
- *     Z: −5.48  → +5.30   (front-to-back depth)
- *     ▸ Clicking this prim can land anywhere on the body.
- *     ▸ SkeletonModel uses the 3-D hit-point to resolve the nearest bone.
- *
- *   Primitive 1  material: White___Vray  (15,812 verts)
- *     SKULL + TEETH  –  cranial vault, facial bones, and dental arches
- *     Y: −9.37 → +17.73  (50 %–91 % of full height = hip to skull-base)
- *     X: −4.85 → +4.85
- *     Density peak at Y +14 → +18 (jaw / dental-arch level, X ≈ ±1.3):
- *       ▸ Upper teeth cluster  (maxillary dental arch)
- *       ▸ Skull-cap / cranial vault extending down to mandibular level
- *     Small cluster at Y −9.35 → −8.03, Z +0.55 → +1.69 (anterior):
- *       ▸ Pubic symphysis fibrocartilage  (anterior pelvis, ~33 verts)
- *
- *   Primitive 2  material: Brown___Vray  (6,553 verts)
- *     INTERVERTEBRAL DISCS  –  thoracolumbar fibrocartilage (T9 → L5)
- *     Y: −9.59 → −3.22  (50 %–59 %, upper lumbar / lower thoracic level)
- *     X: ±2.26  (narrow – ~5.7 cm radius, matches disc diameter)
- *     Z: −3.94 → −0.49  (posterior – along the vertebral column axis)
- *     Even density across the whole Y range → stacked disc segments
- *
- * ── sub02  (7,322 vertices) ──────────────────────────────────────────────────
- *
- *   Primitive 0  material: Bones___Vray  (7,322 verts)
- *     THORACIC CAGE  –  all 12 pairs of ribs + sternum
- *     Y: −10.86 → +13.95  (48 %–85 % of full height)
- *     X: −6.03 → +6.03   (≈ 30 cm wide at widest = T6 level ✓)
- *     Z: −4.73 → +3.28   (8 cm front-to-back ✓)
- *     Widest at Y +4 → +7 (T6–T8, mid-thorax) and narrows toward top/bottom.
- *     Lower extent Y ≈ −11 = tips of the floating 11th/12th ribs.
- *     Upper extent Y ≈ +14 = 1st rib / clavicular notch of manubrium.
- *
- * ═══════════════════════════════════════════════════════════════════════════
- * HOW BONE IDENTIFICATION WORKS (hybrid strategy in SkeletonModel.tsx)
- * ═══════════════════════════════════════════════════════════════════════════
- *
- *  Step 1 – boneMap lookup  (fast, for per-bone GLB models)
- *    If the clicked mesh's name IS in this map → return the exact bone.
- *
- *  Step 2 – position-based fallback  (for merged-mesh models like this one)
- *    If the mesh name is NOT in this map → use the 3-D world-space hit
- *    point from the raycast intersection and find the nearest BonePart
- *    by Euclidean distance from skeletalSystem.ts positions.
- *    This correctly resolves 'sub01' clicks to femur / skull / radius etc.
- *    and 'sub02' clicks to the nearest rib or sternum.
- *
- *  'sub01' and 'sub02' are intentionally absent from boneMap so the
- *  position-based fallback fires automatically.
- *
- * ═══════════════════════════════════════════════════════════════════════════
- * HOW TO ADD A FUTURE PER-BONE MODEL
- * ═══════════════════════════════════════════════════════════════════════════
- *
- *  1. Run the app (npm run dev) and click a bone in the 3-D viewer.
- *  2. Open DevTools console → look for: [Anatomy] Clicked mesh: "Femur_L"
- *  3. Add an entry below:
- *       "Femur_L": "femur-l",
- *  4. The value must be a valid `id` from src/data/skeletalSystem.ts.
- *
- * ALL VALID BONE IDs (206 bones from skeletalSystem.ts):
- *
- *  Cranium:  frontal | parietal-l | parietal-r | occipital |
- *            temporal-l | temporal-r | sphenoid | ethmoid
- *  Face:     mandible | maxilla-l | maxilla-r | zygomatic-l | zygomatic-r |
- *            palatine-l | palatine-r | lacrimal-l | lacrimal-r |
- *            nasal-l | nasal-r | inferior-concha-l | inferior-concha-r | vomer
- *  Vertebrae: c1-atlas | c2-axis | c3 | c4 | c5 | c6 | c7 |
- *             t1–t12 | l1–l5 | sacrum | coccyx
- *  Thorax:   sternum | rib-1-l…rib-12-l | rib-1-r…rib-12-r
- *  Shoulder: clavicle-l | clavicle-r | scapula-l | scapula-r
- *  Arm:      humerus-l | humerus-r | radius-l | radius-r | ulna-l | ulna-r
- *  Wrist:    scaphoid-l/r | lunate-l/r | triquetrum-l/r | pisiform-l/r |
- *            trapezium-l/r | trapezoid-l/r | capitate-l/r | hamate-l/r
- *  Hand:     metacarpal-1…5-l/r  +  finger phalanges (l/r)
- *  Pelvis:   pelvis-l | pelvis-r
- *  Leg:      femur-l | femur-r | patella-l | patella-r |
- *            tibia-l | tibia-r | fibula-l | fibula-r
- *  Ankle:    calcaneus-l/r | talus-l/r | navicular-l/r | cuboid-l/r |
- *            cuneiform-med/int/lat-l/r
- *  Foot:     metatarsal-1…5-l/r  +  toe phalanges (l/r)
+ * For future per-bone GLB models, add entries here:
+ *   "MeshName_In_GLB": "A02.x.xx.xxx-L"  (TA98 ID with side suffix)
  */
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRIMARY BONE MAP
-//
-// Keys   = exact Three.js mesh names (what event.object.name returns).
-// Values = bone IDs from src/data/skeletalSystem.ts.
-//
-// ⚠️  'sub01' and 'sub02' are INTENTIONALLY absent.
-//     SkeletonModel.tsx falls back to 3-D hit-point → nearest-bone lookup
-//     for any mesh name not present here.
-// ─────────────────────────────────────────────────────────────────────────────
 export const boneMap = {
+  // ── CRANIUM ────────────────────────────────────────────────────────────
+  "Skull":              "A02.1.02.001",
+  "skull":              "A02.1.02.001",
+  "Head":               "A02.1.02.001",
+  "Cranium":            "A02.1.02.001",
+  "Frontal":            "A02.1.02.001",
+  "Frontal_Bone":       "A02.1.02.001",
 
-  // ── CRANIUM ────────────────────────────────────────────────────────────────
-  "Skull":              "frontal",
-  "skull":              "frontal",
-  "Head":               "frontal",
-  "Cranium":            "frontal",
-  "Frontal":            "frontal",
-  "Frontal_Bone":       "frontal",
-  "FrontalBone":        "frontal",
-  "bone_Frontal":       "frontal",
+  "Parietal_L":         "A02.1.02.101-L",
+  "Parietal_Left":      "A02.1.02.101-L",
+  "Parietal_R":         "A02.1.02.101-R",
+  "Parietal_Right":     "A02.1.02.101-R",
 
-  "Parietal_L":         "parietal-l",
-  "Parietal_Left":      "parietal-l",
-  "LeftParietal":       "parietal-l",
-  "Left_Parietal":      "parietal-l",
+  "Occipital":          "A02.1.02.201",
+  "Occipital_Bone":     "A02.1.02.201",
 
-  "Parietal_R":         "parietal-r",
-  "Parietal_Right":     "parietal-r",
-  "RightParietal":      "parietal-r",
-  "Right_Parietal":     "parietal-r",
+  "Temporal_L":         "A02.1.02.301-L",
+  "Temporal_Left":      "A02.1.02.301-L",
+  "Temporal_R":         "A02.1.02.301-R",
+  "Temporal_Right":     "A02.1.02.301-R",
 
-  "Occipital":          "occipital",
-  "Occipital_Bone":     "occipital",
+  "Sphenoid":           "A02.1.02.401",
+  "Sphenoid_Bone":      "A02.1.02.401",
 
-  "Temporal_L":         "temporal-l",
-  "Temporal_Left":      "temporal-l",
-  "LeftTemporal":       "temporal-l",
+  "Ethmoid":            "A02.1.02.501",
+  "Ethmoid_Bone":       "A02.1.02.501",
 
-  "Temporal_R":         "temporal-r",
-  "Temporal_Right":     "temporal-r",
-  "RightTemporal":      "temporal-r",
+  // ── FACIAL BONES ───────────────────────────────────────────────────────
+  "Mandible":           "A02.1.03.701",
+  "Jaw":                "A02.1.03.701",
+  "jaw":                "A02.1.03.701",
 
-  "Sphenoid":           "sphenoid",
-  "Sphenoid_Bone":      "sphenoid",
+  "Maxilla_L":          "A02.1.03.301-L",
+  "Maxilla_R":          "A02.1.03.301-R",
 
-  "Ethmoid":            "ethmoid",
-  "Ethmoid_Bone":       "ethmoid",
+  "Zygomatic_L":        "A02.1.03.201-L",
+  "Zygomatic_R":        "A02.1.03.201-R",
 
-  // ── FACIAL BONES ───────────────────────────────────────────────────────────
-  "Mandible":           "mandible",
-  "Jaw":                "mandible",
-  "jaw":                "mandible",
-  "Lower_Jaw":          "mandible",
-  "LowerJaw":           "mandible",
+  "Nasal_L":            "A02.1.03.001-L",
+  "Nasal_R":            "A02.1.03.001-R",
 
-  "Maxilla_L":          "maxilla-l",
-  "Maxilla_Left":       "maxilla-l",
-  "LeftMaxilla":        "maxilla-l",
+  "Lacrimal_L":         "A02.1.03.101-L",
+  "Lacrimal_R":         "A02.1.03.101-R",
 
-  "Maxilla_R":          "maxilla-r",
-  "Maxilla_Right":      "maxilla-r",
-  "RightMaxilla":       "maxilla-r",
+  "Palatine_L":         "A02.1.03.401-L",
+  "Palatine_R":         "A02.1.03.401-R",
 
-  "Zygomatic_L":        "zygomatic-l",
-  "ZygomaticL":         "zygomatic-l",
-  "Cheekbone_L":        "zygomatic-l",
+  "InferiorConcha_L":   "A02.1.03.501-L",
+  "InferiorConcha_R":   "A02.1.03.501-R",
 
-  "Zygomatic_R":        "zygomatic-r",
-  "ZygomaticR":         "zygomatic-r",
-  "Cheekbone_R":        "zygomatic-r",
+  "Vomer":              "A02.1.03.601",
 
-  "Palatine_L":         "palatine-l",
-  "Palatine_R":         "palatine-r",
-  "Lacrimal_L":         "lacrimal-l",
-  "Lacrimal_R":         "lacrimal-r",
-  "Nasal_L":            "nasal-l",
-  "Nasal_R":            "nasal-r",
-  "InferiorConcha_L":   "inf-nasal-concha-l",
-  "Inferior_Concha_L":  "inf-nasal-concha-l",
-  "InferiorConcha_R":   "inf-nasal-concha-r",
-  "Inferior_Concha_R":  "inf-nasal-concha-r",
-  "Vomer":              "vomer",
+  // ── HYOID ──────────────────────────────────────────────────────────────
+  "Hyoid":              "A02.1.00.027",
+  "Hyoid_Bone":         "A02.1.00.027",
 
-  // ── HYOID ──────────────────────────────────────────────────────────────────
-  "Hyoid":              "hyoid",
-  "Hyoid_Bone":         "hyoid",
+  // ── AUDITORY OSSICLES ──────────────────────────────────────────────────
+  "Malleus_L":          "A02.1.06.001-L",   "Malleus_R":          "A02.1.06.001-R",
+  "Incus_L":            "A02.1.06.002-L",   "Incus_R":            "A02.1.06.002-R",
+  "Stapes_L":           "A02.1.06.003-L",   "Stapes_R":           "A02.1.06.003-R",
 
-  // ── AUDITORY OSSICLES ──────────────────────────────────────────────────────
-  "Malleus_L":          "malleus-l",   "Malleus_R":          "malleus-r",
-  "Incus_L":            "incus-l",     "Incus_R":            "incus-r",
-  "Stapes_L":           "stapes-l",    "Stapes_R":           "stapes-r",
+  // ── VERTEBRAL COLUMN ───────────────────────────────────────────────────
+  "Atlas":              "A02.2.02.001",
+  "C1":                 "A02.2.02.001",
+  "Axis":               "A02.2.02.101",
+  "C2":                 "A02.2.02.101",
+  "C3":                 "A02.2.02.201",
+  "C4":                 "A02.2.02.202",
+  "C5":                 "A02.2.02.203",
+  "C6":                 "A02.2.02.204",
+  "C7":                 "A02.2.02.301",
 
-  // ── VERTEBRAL COLUMN ───────────────────────────────────────────────────────
-  "Atlas":              "c1-atlas",
-  "C1":                 "c1-atlas",
-  "C1_Atlas":           "c1-atlas",
-  "Cervical_1":         "c1-atlas",
+  "T1":  "A02.2.03.001",  "T2":  "A02.2.03.002",  "T3":  "A02.2.03.003",
+  "T4":  "A02.2.03.004",  "T5":  "A02.2.03.005",  "T6":  "A02.2.03.006",
+  "T7":  "A02.2.03.007",  "T8":  "A02.2.03.008",  "T9":  "A02.2.03.009",
+  "T10": "A02.2.03.010",  "T11": "A02.2.03.011",  "T12": "A02.2.03.012",
 
-  "Axis":               "c2-axis",
-  "C2":                 "c2-axis",
-  "Cervical_2":         "c2-axis",
+  "L1":  "A02.2.04.001",  "L2":  "A02.2.04.002",  "L3":  "A02.2.04.003",
+  "L4":  "A02.2.04.004",  "L5":  "A02.2.04.005",
 
-  "C3":                 "c3",   "Cervical_3":  "c3",
-  "C4":                 "c4",   "Cervical_4":  "c4",
-  "C5":                 "c5",   "Cervical_5":  "c5",
-  "C6":                 "c6",   "Cervical_6":  "c6",
-  "C7":                 "c7",   "Cervical_7":  "c7",
+  "Sacrum":  "A02.2.05.001",
+  "Coccyx":  "A02.2.06.001",
 
-  "T1":  "t1",  "Thoracic_1":  "t1",
-  "T2":  "t2",  "Thoracic_2":  "t2",
-  "T3":  "t3",  "Thoracic_3":  "t3",
-  "T4":  "t4",  "Thoracic_4":  "t4",
-  "T5":  "t5",  "Thoracic_5":  "t5",
-  "T6":  "t6",  "Thoracic_6":  "t6",
-  "T7":  "t7",  "Thoracic_7":  "t7",
-  "T8":  "t8",  "Thoracic_8":  "t8",
-  "T9":  "t9",  "Thoracic_9":  "t9",
-  "T10": "t10", "Thoracic_10": "t10",
-  "T11": "t11", "Thoracic_11": "t11",
-  "T12": "t12", "Thoracic_12": "t12",
+  // ── THORAX ─────────────────────────────────────────────────────────────
+  "Sternum":   "A02.3.01.001",
 
-  "L1":  "l1",  "Lumbar_1":  "l1",
-  "L2":  "l2",  "Lumbar_2":  "l2",
-  "L3":  "l3",  "Lumbar_3":  "l3",
-  "L4":  "l4",  "Lumbar_4":  "l4",
-  "L5":  "l5",  "Lumbar_5":  "l5",
+  "Rib_1_L":  "A02.3.02.001-L",   "Rib_1_R":  "A02.3.02.001-R",
+  "Rib_2_L":  "A02.3.02.002-L",   "Rib_2_R":  "A02.3.02.002-R",
+  "Rib_3_L":  "A02.3.02.003-L",   "Rib_3_R":  "A02.3.02.003-R",
+  "Rib_4_L":  "A02.3.02.004-L",   "Rib_4_R":  "A02.3.02.004-R",
+  "Rib_5_L":  "A02.3.02.005-L",   "Rib_5_R":  "A02.3.02.005-R",
+  "Rib_6_L":  "A02.3.02.006-L",   "Rib_6_R":  "A02.3.02.006-R",
+  "Rib_7_L":  "A02.3.02.007-L",   "Rib_7_R":  "A02.3.02.007-R",
+  "Rib_8_L":  "A02.3.02.008-L",   "Rib_8_R":  "A02.3.02.008-R",
+  "Rib_9_L":  "A02.3.02.009-L",   "Rib_9_R":  "A02.3.02.009-R",
+  "Rib_10_L": "A02.3.02.010-L",   "Rib_10_R": "A02.3.02.010-R",
+  "Rib_11_L": "A02.3.02.011-L",   "Rib_11_R": "A02.3.02.011-R",
+  "Rib_12_L": "A02.3.02.012-L",   "Rib_12_R": "A02.3.02.012-R",
 
-  "Sacrum":  "sacrum",
-  "Coccyx":  "coccyx",
-  "Tailbone": "coccyx",
+  // ── SHOULDER GIRDLE ────────────────────────────────────────────────────
+  "Clavicle_L":       "A02.4.01.001-L",
+  "Clavicle_R":       "A02.4.01.001-R",
+  "Scapula_L":        "A02.4.01.002-L",
+  "Scapula_R":        "A02.4.01.002-R",
 
-  // ── THORAX ─────────────────────────────────────────────────────────────────
-  "Sternum":   "sternum",
-  "Breastbone":"sternum",
+  // ── ARM ────────────────────────────────────────────────────────────────
+  "Humerus_L":  "A02.4.02.001-L",   "Humerus_R":  "A02.4.02.001-R",
+  "Radius_L":   "A02.4.03.001-L",   "Radius_R":   "A02.4.03.001-R",
+  "Ulna_L":     "A02.4.03.002-L",   "Ulna_R":     "A02.4.03.002-R",
 
-  "Rib_1_L":  "rib-1-l",   "Rib_1_R":  "rib-1-r",
-  "Rib_2_L":  "rib-2-l",   "Rib_2_R":  "rib-2-r",
-  "Rib_3_L":  "rib-3-l",   "Rib_3_R":  "rib-3-r",
-  "Rib_4_L":  "rib-4-l",   "Rib_4_R":  "rib-4-r",
-  "Rib_5_L":  "rib-5-l",   "Rib_5_R":  "rib-5-r",
-  "Rib_6_L":  "rib-6-l",   "Rib_6_R":  "rib-6-r",
-  "Rib_7_L":  "rib-7-l",   "Rib_7_R":  "rib-7-r",
-  "Rib_8_L":  "rib-8-l",   "Rib_8_R":  "rib-8-r",
-  "Rib_9_L":  "rib-9-l",   "Rib_9_R":  "rib-9-r",
-  "Rib_10_L": "rib-10-l",  "Rib_10_R": "rib-10-r",
-  "Rib_11_L": "rib-11-l",  "Rib_11_R": "rib-11-r",
-  "Rib_12_L": "rib-12-l",  "Rib_12_R": "rib-12-r",
+  // ── WRIST / CARPALS ────────────────────────────────────────────────────
+  "Scaphoid_L":   "A02.4.08.001-L",     "Scaphoid_R":   "A02.4.08.001-R",
+  "Lunate_L":     "A02.4.08.002-L",     "Lunate_R":     "A02.4.08.002-R",
+  "Triquetrum_L": "A02.4.08.003-L",     "Triquetrum_R": "A02.4.08.003-R",
+  "Pisiform_L":   "A02.4.08.004-L",     "Pisiform_R":   "A02.4.08.004-R",
+  "Trapezium_L":  "A02.4.08.005-L",     "Trapezium_R":  "A02.4.08.005-R",
+  "Trapezoid_L":  "A02.4.08.006-L",     "Trapezoid_R":  "A02.4.08.006-R",
+  "Capitate_L":   "A02.4.08.007-L",     "Capitate_R":   "A02.4.08.007-R",
+  "Hamate_L":     "A02.4.08.008-L",     "Hamate_R":     "A02.4.08.008-R",
 
-  // ── SHOULDER GIRDLE ────────────────────────────────────────────────────────
-  "Clavicle_L":       "clavicle-l",
-  "Clavicle_Left":    "clavicle-l",
-  "Collarbone_L":     "clavicle-l",
+  // ── PELVIS ─────────────────────────────────────────────────────────────
+  "HipBone_L":    "A02.5.01.001-L",     "HipBone_R":    "A02.5.01.001-R",
+  "Pelvis_L":     "A02.5.01.001-L",     "Pelvis_R":     "A02.5.01.001-R",
 
-  "Clavicle_R":       "clavicle-r",
-  "Clavicle_Right":   "clavicle-r",
-  "Collarbone_R":     "clavicle-r",
+  // ── LEG ────────────────────────────────────────────────────────────────
+  "Femur_L":    "A02.5.02.001-L",   "Femur_R":    "A02.5.02.001-R",
+  "Patella_L":  "A02.5.02.002-L",   "Patella_R":  "A02.5.02.002-R",
+  "Tibia_L":    "A02.5.06.001-L",   "Tibia_R":    "A02.5.06.001-R",
+  "Fibula_L":   "A02.5.06.002-L",   "Fibula_R":   "A02.5.06.002-R",
 
-  "Scapula_L":        "scapula-l",
-  "ShoulderBlade_L":  "scapula-l",
-  "Shoulder_Blade_L": "scapula-l",
-
-  "Scapula_R":        "scapula-r",
-  "ShoulderBlade_R":  "scapula-r",
-  "Shoulder_Blade_R": "scapula-r",
-
-  // ── ARM ────────────────────────────────────────────────────────────────────
-  "Humerus_L":  "humerus-l",   "Humerus_R":  "humerus-r",
-  "Radius_L":   "radius-l",    "Radius_R":   "radius-r",
-  "Ulna_L":     "ulna-l",      "Ulna_R":     "ulna-r",
-
-  // ── WRIST / CARPALS ────────────────────────────────────────────────────────
-  "Scaphoid_L":   "scaphoid-l",     "Scaphoid_R":   "scaphoid-r",
-  "Lunate_L":     "lunate-l",       "Lunate_R":     "lunate-r",
-  "Triquetrum_L": "triquetrum-l",   "Triquetrum_R": "triquetrum-r",
-  "Pisiform_L":   "pisiform-l",     "Pisiform_R":   "pisiform-r",
-  "Trapezium_L":  "trapezium-l",    "Trapezium_R":  "trapezium-r",
-  "Trapezoid_L":  "trapezoid-l",    "Trapezoid_R":  "trapezoid-r",
-  "Capitate_L":   "capitate-l",     "Capitate_R":   "capitate-r",
-  "Hamate_L":     "hamate-l",       "Hamate_R":     "hamate-r",
-
-  // ── HAND METACARPALS ───────────────────────────────────────────────────────
-  "Metacarpal_1_L": "metacarpal-1-l", "Metacarpal_1_R": "metacarpal-1-r",
-  "Metacarpal_2_L": "metacarpal-2-l", "Metacarpal_2_R": "metacarpal-2-r",
-  "Metacarpal_3_L": "metacarpal-3-l", "Metacarpal_3_R": "metacarpal-3-r",
-  "Metacarpal_4_L": "metacarpal-4-l", "Metacarpal_4_R": "metacarpal-4-r",
-  "Metacarpal_5_L": "metacarpal-5-l", "Metacarpal_5_R": "metacarpal-5-r",
-
-  // ── HAND PHALANGES (28) ────────────────────────────────────────────────────
-  // Thumb (2 per side)
-  "Thumb_Proximal_L":   "phalanx-proximal-thumb-l",
-  "Thumb_Proximal_R":   "phalanx-proximal-thumb-r",
-  "Thumb_Distal_L":     "phalanx-distal-thumb-l",
-  "Thumb_Distal_R":     "phalanx-distal-thumb-r",
-  "ProximalPhalanx_Thumb_L": "phalanx-proximal-thumb-l",
-  "ProximalPhalanx_Thumb_R": "phalanx-proximal-thumb-r",
-  "DistalPhalanx_Thumb_L":   "phalanx-distal-thumb-l",
-  "DistalPhalanx_Thumb_R":   "phalanx-distal-thumb-r",
-
-  // Index finger (3 per side)
-  "Index_Proximal_L":   "phalanx-proximal-index-finger-l",
-  "Index_Proximal_R":   "phalanx-proximal-index-finger-r",
-  "Index_Middle_L":     "phalanx-middle-index-finger-l",
-  "Index_Middle_R":     "phalanx-middle-index-finger-r",
-  "Index_Distal_L":     "phalanx-distal-index-finger-l",
-  "Index_Distal_R":     "phalanx-distal-index-finger-r",
-  "ProximalPhalanx_Index_L": "phalanx-proximal-index-finger-l",
-  "ProximalPhalanx_Index_R": "phalanx-proximal-index-finger-r",
-  "MiddlePhalanx_Index_L":   "phalanx-middle-index-finger-l",
-  "MiddlePhalanx_Index_R":   "phalanx-middle-index-finger-r",
-  "DistalPhalanx_Index_L":   "phalanx-distal-index-finger-l",
-  "DistalPhalanx_Index_R":   "phalanx-distal-index-finger-r",
-
-  // Middle finger (3 per side)
-  "Middle_Proximal_L":  "phalanx-proximal-middle-finger-l",
-  "Middle_Proximal_R":  "phalanx-proximal-middle-finger-r",
-  "Middle_Middle_L":    "phalanx-middle-middle-finger-l",
-  "Middle_Middle_R":    "phalanx-middle-middle-finger-r",
-  "Middle_Distal_L":    "phalanx-distal-middle-finger-l",
-  "Middle_Distal_R":    "phalanx-distal-middle-finger-r",
-  "ProximalPhalanx_Middle_L": "phalanx-proximal-middle-finger-l",
-  "ProximalPhalanx_Middle_R": "phalanx-proximal-middle-finger-r",
-  "MiddlePhalanx_Middle_L":   "phalanx-middle-middle-finger-l",
-  "MiddlePhalanx_Middle_R":   "phalanx-middle-middle-finger-r",
-  "DistalPhalanx_Middle_L":   "phalanx-distal-middle-finger-l",
-  "DistalPhalanx_Middle_R":   "phalanx-distal-middle-finger-r",
-
-  // Ring finger (3 per side)
-  "Ring_Proximal_L":    "phalanx-proximal-ring-finger-l",
-  "Ring_Proximal_R":    "phalanx-proximal-ring-finger-r",
-  "Ring_Middle_L":      "phalanx-middle-ring-finger-l",
-  "Ring_Middle_R":      "phalanx-middle-ring-finger-r",
-  "Ring_Distal_L":      "phalanx-distal-ring-finger-l",
-  "Ring_Distal_R":      "phalanx-distal-ring-finger-r",
-  "ProximalPhalanx_Ring_L": "phalanx-proximal-ring-finger-l",
-  "ProximalPhalanx_Ring_R": "phalanx-proximal-ring-finger-r",
-  "MiddlePhalanx_Ring_L":   "phalanx-middle-ring-finger-l",
-  "MiddlePhalanx_Ring_R":   "phalanx-middle-ring-finger-r",
-  "DistalPhalanx_Ring_L":   "phalanx-distal-ring-finger-l",
-  "DistalPhalanx_Ring_R":   "phalanx-distal-ring-finger-r",
-
-  // Little finger (3 per side)
-  "Little_Proximal_L":  "phalanx-proximal-little-finger-l",
-  "Little_Proximal_R":  "phalanx-proximal-little-finger-r",
-  "Little_Middle_L":    "phalanx-middle-little-finger-l",
-  "Little_Middle_R":    "phalanx-middle-little-finger-r",
-  "Little_Distal_L":    "phalanx-distal-little-finger-l",
-  "Little_Distal_R":    "phalanx-distal-little-finger-r",
-  "ProximalPhalanx_Little_L": "phalanx-proximal-little-finger-l",
-  "ProximalPhalanx_Little_R": "phalanx-proximal-little-finger-r",
-  "MiddlePhalanx_Little_L":   "phalanx-middle-little-finger-l",
-  "MiddlePhalanx_Little_R":   "phalanx-middle-little-finger-r",
-  "DistalPhalanx_Little_L":   "phalanx-distal-little-finger-l",
-  "DistalPhalanx_Little_R":   "phalanx-distal-little-finger-r",
-
-  // ── PELVIS ────────────────────────────────────────────────────────────────
-  "Pelvis_L":     "hipbone-l",   "Pelvis_R":     "hipbone-r",
-  "Pelvis_Left":  "hipbone-l",   "Pelvis_Right":  "hipbone-r",
-  "HipBone_L":    "hipbone-l",   "HipBone_R":    "hipbone-r",
-  "Ilium_L":      "hipbone-l",   "Ilium_R":      "hipbone-r",
-  "Hip_L":        "hipbone-l",   "Hip_R":        "hipbone-r",
-
-  // ── LEG ───────────────────────────────────────────────────────────────────
-  "Femur_L":   "femur-l",    "Femur_R":   "femur-r",
-  "Patella_L": "patella-l",  "Patella_R": "patella-r",
-  "Tibia_L":   "tibia-l",    "Tibia_R":   "tibia-r",
-  "Fibula_L":  "fibula-l",   "Fibula_R":  "fibula-r",
-
-  // ── ANKLE / TARSALS ───────────────────────────────────────────────────────
-  "Calcaneus_L":    "calcaneus-l",   "Calcaneus_R":    "calcaneus-r",
-  "Heel_L":         "calcaneus-l",   "Heel_R":         "calcaneus-r",
-  "Talus_L":        "talus-l",       "Talus_R":        "talus-r",
-  "Navicular_L":    "navicular-foot-l", "Navicular_R":    "navicular-foot-r",
-  "Cuboid_L":       "cuboid-l",      "Cuboid_R":       "cuboid-r",
-  "CuneiformMed_L": "medial-cuneiform-l",    "CuneiformMed_R": "medial-cuneiform-r",
-  "CuneiformInt_L": "intermediate-cuneiform-l","CuneiformInt_R": "intermediate-cuneiform-r",
-  "CuneiformLat_L": "lateral-cuneiform-l",    "CuneiformLat_R": "lateral-cuneiform-r",
-  "Medial_Cuneiform_L": "medial-cuneiform-l", "Medial_Cuneiform_R": "medial-cuneiform-r",
-  "Intermediate_Cuneiform_L": "intermediate-cuneiform-l", "Intermediate_Cuneiform_R": "intermediate-cuneiform-r",
-  "Lateral_Cuneiform_L": "lateral-cuneiform-l", "Lateral_Cuneiform_R": "lateral-cuneiform-r",
-
-  // ── FOOT METATARSALS ──────────────────────────────────────────────────────
-  "Metatarsal_1_L": "metatarsal-1-l", "Metatarsal_1_R": "metatarsal-1-r",
-  "Metatarsal_2_L": "metatarsal-2-l", "Metatarsal_2_R": "metatarsal-2-r",
-  "Metatarsal_3_L": "metatarsal-3-l", "Metatarsal_3_R": "metatarsal-3-r",
-  "Metatarsal_4_L": "metatarsal-4-l", "Metatarsal_4_R": "metatarsal-4-r",
-  "Metatarsal_5_L": "metatarsal-5-l", "Metatarsal_5_R": "metatarsal-5-r",
-
-  // ── FOOT PHALANGES (28) ────────────────────────────────────────────────────
-  // Big toe (2 per side)
-  "BigToe_Proximal_L":  "phalanx-proximal-big-toe-l",
-  "BigToe_Proximal_R":  "phalanx-proximal-big-toe-r",
-  "BigToe_Distal_L":    "phalanx-distal-big-toe-l",
-  "BigToe_Distal_R":    "phalanx-distal-big-toe-r",
-  "Hallux_Proximal_L":  "phalanx-proximal-big-toe-l",
-  "Hallux_Proximal_R":  "phalanx-proximal-big-toe-r",
-  "Hallux_Distal_L":    "phalanx-distal-big-toe-l",
-  "Hallux_Distal_R":    "phalanx-distal-big-toe-r",
-
-  // 2nd toe (3 per side)
-  "Toe2_Proximal_L":    "phalanx-proximal-2nd-toe-l",
-  "Toe2_Proximal_R":    "phalanx-proximal-2nd-toe-r",
-  "Toe2_Middle_L":      "phalanx-middle-2nd-toe-l",
-  "Toe2_Middle_R":      "phalanx-middle-2nd-toe-r",
-  "Toe2_Distal_L":      "phalanx-distal-2nd-toe-l",
-  "Toe2_Distal_R":      "phalanx-distal-2nd-toe-r",
-
-  // 3rd toe (3 per side)
-  "Toe3_Proximal_L":    "phalanx-proximal-3rd-toe-l",
-  "Toe3_Proximal_R":    "phalanx-proximal-3rd-toe-r",
-  "Toe3_Middle_L":      "phalanx-middle-3rd-toe-l",
-  "Toe3_Middle_R":      "phalanx-middle-3rd-toe-r",
-  "Toe3_Distal_L":      "phalanx-distal-3rd-toe-l",
-  "Toe3_Distal_R":      "phalanx-distal-3rd-toe-r",
-
-  // 4th toe (3 per side)
-  "Toe4_Proximal_L":    "phalanx-proximal-4th-toe-l",
-  "Toe4_Proximal_R":    "phalanx-proximal-4th-toe-r",
-  "Toe4_Middle_L":      "phalanx-middle-4th-toe-l",
-  "Toe4_Middle_R":      "phalanx-middle-4th-toe-r",
-  "Toe4_Distal_L":      "phalanx-distal-4th-toe-l",
-  "Toe4_Distal_R":      "phalanx-distal-4th-toe-r",
-
-  // 5th toe (3 per side)
-  "Toe5_Proximal_L":    "phalanx-proximal-little-toe-l",
-  "Toe5_Proximal_R":    "phalanx-proximal-little-toe-r",
-  "Toe5_Middle_L":      "phalanx-middle-little-toe-l",
-  "Toe5_Middle_R":      "phalanx-middle-little-toe-r",
-  "Toe5_Distal_L":      "phalanx-distal-little-toe-l",
-  "Toe5_Distal_R":      "phalanx-distal-little-toe-r",
+  // ── ANKLE / TARSALS ────────────────────────────────────────────────────
+  "Calcaneus_L":  "A02.5.10.001-L",   "Calcaneus_R":  "A02.5.10.001-R",
+  "Talus_L":      "A02.5.10.002-L",   "Talus_R":      "A02.5.10.002-R",
 };
-
-/**
- * Look up a GLB mesh name → bone ID from skeletalSystem.ts.
- * Returns null when the mesh is not individually mapped
- * (triggering position-based fallback in SkeletonModel.tsx).
- * @param {string} meshName
- * @returns {string | null}
- */
-export function getBoneId(meshName) {
-  return boneMap[meshName] ?? null;
-}
-
-/**
- * The two mesh names produced by Three.js r170 when loading skeleton.glb.
- * Exported for use in SkeletonModel.tsx to distinguish merged-mesh nodes
- * from future per-bone nodes without hard-coding strings in the component.
- */
-export const MERGED_MESH_NAMES = new Set(["sub01", "sub02"]);

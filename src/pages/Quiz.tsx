@@ -1,17 +1,13 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { skeletalParts } from "@/data/skeletalSystem";
-import { getBoneImage } from "@/data/boneImages";
+import { ta98Bones, type TA98Bone } from "@/data/skeletalSystem";
 import { CheckCircle, XCircle, ArrowRight, Calendar } from "lucide-react";
 import { useUserState } from "@/hooks/useUserState";
 
-// Seed-based pseudo-random for daily consistency
+// ── Seed-based pseudo-random for daily consistency ────────────────────────
 function seededRandom(seed: number) {
   let s = seed;
-  return () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return s / 2147483647;
-  };
+  return () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
 }
 
 function getDailySeed() {
@@ -28,14 +24,14 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
   return a;
 }
 
-type QuestionType = "region" | "fact" | "connection" | "description" | "image" | "odd_one_out";
+// ── Three question types ─────────────────────────────────────────────────
+type QuestionType = "terminology" | "classification" | "symmetry";
 
 interface Question {
   type: QuestionType;
   question: string;
   correctAnswer: string;
   options: string[];
-  imageUrl?: string;
 }
 
 const DAILY_QUESTION_COUNT = 20;
@@ -43,69 +39,58 @@ const DAILY_QUESTION_COUNT = 20;
 function generateQuestions(round: number): Question[] {
   const seed = getDailySeed() + round;
   const rng = seededRandom(seed);
-  const parts = shuffle(skeletalParts, rng);
+  const bones = shuffle([...ta98Bones], rng);
   const questions: Question[] = [];
+  const types: QuestionType[] = ["terminology", "classification", "symmetry"];
 
-  const questionTypes: QuestionType[] = ["region", "fact", "connection", "description", "image", "odd_one_out"];
+  for (let i = 0; i < DAILY_QUESTION_COUNT && i < bones.length; i++) {
+    const bone = bones[i];
+    const type = types[Math.floor(rng() * types.length)];
 
-  for (let i = 0; i < DAILY_QUESTION_COUNT && i < parts.length; i++) {
-    const correct = parts[i];
-    const others = parts.filter((p) => p.id !== correct.id);
-    const wrongPool = shuffle(others, rng).slice(0, 3);
-    const typeIndex = Math.floor(rng() * questionTypes.length);
-    let type = questionTypes[typeIndex];
-
-    if (type === "fact" && correct.facts.length === 0) type = "region";
-    if (type === "connection" && correct.connections.length === 0) type = "region";
-    if (type === "image" && !getBoneImage(correct.id, correct.region)) type = "description";
-
-    const allOptions = shuffle([...wrongPool.map((w) => w.name), correct.name], rng);
+    // Get distractors from the same region for harder questions
+    const sameRegion = ta98Bones.filter((b) => b.region === bone.region && b.id !== bone.id);
+    const otherBones = ta98Bones.filter((b) => b.id !== bone.id);
+    const distractorPool = sameRegion.length >= 3 ? sameRegion : otherBones;
 
     switch (type) {
-      case "fact": {
-        const fact = correct.facts[Math.floor(rng() * correct.facts.length)];
-        questions.push({ type, question: `Which bone has this fact: "${fact}"?`, correctAnswer: correct.name, options: allOptions });
-        break;
-      }
-      case "region": {
+      case "terminology": {
+        // "What is the Latin name for [name_en]?"
+        const wrongAnswers = shuffle(distractorPool, rng).slice(0, 3).map((b) => b.name_la);
+        const options = shuffle([bone.name_la, ...wrongAnswers], rng);
         questions.push({
-          type, question: `Which of these bones belongs to the ${correct.region} region?`, correctAnswer: correct.name,
-          options: shuffle([correct.name, ...shuffle(others.filter((o) => o.region !== correct.region), rng).slice(0, 3).map((o) => o.name)], rng),
+          type,
+          question: `What is the Latin name for the ${bone.name_en}?`,
+          correctAnswer: bone.name_la,
+          options,
         });
         break;
       }
-      case "connection": {
-        const connId = correct.connections[Math.floor(rng() * correct.connections.length)];
-        const connBone = skeletalParts.find((b) => b.id === connId);
-        const connName = connBone ? connBone.name : connId;
-        questions.push({ type, question: `Which bone connects to the ${connName}?`, correctAnswer: correct.name, options: allOptions });
+      case "classification": {
+        // "Which region/subregion does [name_en] belong to?"
+        const allRegions = [...new Set(ta98Bones.map((b) => b.region))];
+        const wrongRegions = shuffle(allRegions.filter((r) => r !== bone.region), rng).slice(0, 3);
+        const options = shuffle([bone.region, ...wrongRegions], rng);
+        questions.push({
+          type,
+          question: `Which region does the ${bone.name_en} belong to?`,
+          correctAnswer: bone.region,
+          options,
+        });
         break;
       }
-      case "description": {
-        const snippet = correct.description.length > 80 ? correct.description.slice(0, 80) + "…" : correct.description;
-        questions.push({ type, question: `Which bone matches this description: "${snippet}"`, correctAnswer: correct.name, options: allOptions });
-        break;
-      }
-      case "image": {
-        const imgUrl = getBoneImage(correct.id, correct.region);
-        questions.push({ type, question: "Which bone is shown in this image?", correctAnswer: correct.name, options: allOptions, imageUrl: imgUrl || undefined });
-        break;
-      }
-      case "odd_one_out": {
-        const sameRegion = shuffle(others.filter((o) => o.region === correct.region), rng).slice(0, 3);
-        if (sameRegion.length < 3) {
-          questions.push({
-            type: "region", question: `Which of these bones belongs to the ${correct.region} region?`, correctAnswer: correct.name,
-            options: shuffle([correct.name, ...shuffle(others.filter((o) => o.region !== correct.region), rng).slice(0, 3).map((o) => o.name)], rng),
-          });
-        } else {
-          const oddBone = shuffle(others.filter((o) => o.region !== correct.region), rng)[0];
-          if (oddBone) {
-            questions.push({ type, question: `Which bone does NOT belong to the ${correct.region} region?`, correctAnswer: oddBone.name, options: shuffle([...sameRegion.map((s) => s.name), oddBone.name], rng) });
-          } else {
-            questions.push({ type: "region", question: `Which of these bones belongs to the ${correct.region} region?`, correctAnswer: correct.name, options: allOptions });
-          }
-        }
+      case "symmetry": {
+        // "Is the [name_en] a bilateral (paired) bone?" (True/False style with 4 options)
+        const answer = bone.bilateral ? "Yes — bilateral (paired)" : "No — unpaired (midline)";
+        const options = [
+          "Yes — bilateral (paired)",
+          "No — unpaired (midline)",
+        ];
+        questions.push({
+          type,
+          question: `Is the ${bone.name_en} a bilateral (paired) bone?`,
+          correctAnswer: answer,
+          options,
+        });
         break;
       }
     }
@@ -130,16 +115,11 @@ export default function Quiz() {
   const handleSelect = (opt: string) => {
     if (answered) return;
     setSelected(opt);
-    if (opt === current.correctAnswer) {
-      recordBoneIdentified(); // +10 XP per correct answer
-    }
+    if (opt === current.correctAnswer) recordBoneIdentified();
   };
 
   const next = () => {
-    const newScore = {
-      correct: score.correct + (isCorrect ? 1 : 0),
-      total: score.total + 1,
-    };
+    const newScore = { correct: score.correct + (isCorrect ? 1 : 0), total: score.total + 1 };
     setScore(newScore);
     setSelected(null);
 
@@ -161,6 +141,12 @@ export default function Quiz() {
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
+  const typeLabels: Record<QuestionType, string> = {
+    terminology: "🔤 Terminology",
+    classification: "📂 Classification",
+    symmetry: "🔄 Symmetry",
+  };
+
   if (finished) {
     const pct = Math.round((score.correct / score.total) * 100);
     return (
@@ -171,7 +157,7 @@ export default function Quiz() {
             You got {score.correct} out of {score.total} correct
           </p>
           <p className="text-sm text-muted-foreground">
-            {pct >= 80 ? "Excellent work! 🎉" : pct >= 50 ? "Good effort! Keep studying 💪" : "Keep practicing, you'll get there! 📚"}
+            {pct >= 80 ? "Excellent work! 🎉" : pct >= 50 ? "Good effort! Keep studying 💪" : "Keep practicing! 📚"}
           </p>
           <p className="text-xs text-primary font-medium">+{score.correct * 10} XP earned!</p>
           <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
@@ -222,12 +208,9 @@ export default function Quiz() {
         >
           <div className="space-y-3">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
-              {current.type.replace("_", " ")}
+              {typeLabels[current.type]}
             </span>
             <p className="text-lg font-medium text-foreground">{current.question}</p>
-            {current.imageUrl && (
-              <img src={current.imageUrl} alt="Bone illustration" className="h-32 w-auto object-contain rounded-lg mx-auto opacity-90" />
-            )}
           </div>
 
           <div className="grid gap-3">

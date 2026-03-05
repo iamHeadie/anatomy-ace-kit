@@ -1,48 +1,80 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { skeletalParts } from "@/data/skeletalSystem";
-import { RotateCcw, ChevronLeft, ChevronRight, Bone } from "lucide-react";
+import { ta98Bones, boneRegions, type TA98Bone } from "@/data/skeletalSystem";
+import { RotateCcw, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { useUserState } from "@/hooks/useUserState";
-import { BoneMiniViewer } from "@/components/anatomy/BoneMiniViewer";
 
 export default function Flashcards() {
-  const cards = useMemo(() => [...skeletalParts].sort(() => Math.random() - 0.5), []);
+  const [regionFilter, setRegionFilter] = useState<string>("All");
+  const { recordFlashcardReview } = useUserState();
+
+  // Filter and shuffle cards based on region
+  const cards = useMemo(() => {
+    const filtered = regionFilter === "All"
+      ? ta98Bones
+      : ta98Bones.filter((b) => b.region === regionFilter);
+    return [...filtered].sort(() => Math.random() - 0.5);
+  }, [regionFilter]);
+
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const { recordFlashcardReview } = useUserState();
+
+  // Reset index when filter changes
+  useMemo(() => { setIndex(0); setFlipped(false); }, [regionFilter]);
 
   const card = cards[index];
 
   const handleFlip = () => {
-    if (!flipped) {
-      recordFlashcardReview(); // +25 XP when revealing answer
-    }
+    if (!flipped) recordFlashcardReview();
     setFlipped(!flipped);
   };
 
   const next = () => { setFlipped(false); setIndex((i) => (i + 1) % cards.length); };
   const prev = () => { setFlipped(false); setIndex((i) => (i - 1 + cards.length) % cards.length); };
 
+  if (!card) return (
+    <div className="p-6 max-w-2xl mx-auto text-center text-muted-foreground">
+      No bones found for this region.
+    </div>
+  );
+
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Flashcards</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Card {index + 1} of {cards.length}
-        </p>
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Flashcards</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Card {index + 1} of {cards.length} · {regionFilter}
+          </p>
+        </div>
+
+        {/* Region filter dropdown */}
+        <div className="flex items-center gap-2">
+          <Filter size={14} className="text-muted-foreground" />
+          <select
+            value={regionFilter}
+            onChange={(e) => setRegionFilter(e.target.value)}
+            className="bg-secondary text-foreground text-sm rounded-lg px-3 py-1.5 border border-border/30 outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="All">All Regions</option>
+            {boneRegions.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* ── Flashcard ── */}
+      {/* Flashcard */}
       <div className="perspective-1000 cursor-pointer" onClick={handleFlip}>
         <motion.div
           animate={{ rotateY: flipped ? 180 : 0 }}
           transition={{ duration: 0.5, type: "spring", damping: 20 }}
           style={{ transformStyle: "preserve-3d" }}
-          className="relative h-80"
+          className="relative h-72"
         >
-          {/* ── FRONT ── */}
+          {/* FRONT — English name */}
           <div
-            className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center p-6 gap-3"
+            className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center p-6 gap-4"
             style={{
               backfaceVisibility: "hidden",
               background: "rgba(255,255,255,0.04)",
@@ -50,31 +82,37 @@ export default function Flashcards() {
               backdropFilter: "blur(12px)",
             }}
           >
-            {/* 3D mini bone preview */}
-            <div className="w-full flex-1 min-h-0 max-h-44 rounded-xl overflow-hidden"
-              style={{ background: "rgba(0,0,0,0.25)" }}
-            >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={card.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="w-full h-full"
-                >
-                  <BoneMiniViewer boneId={card.id} className="w-full h-full" />
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
-              What is this bone?
-            </p>
-            <p className="text-sm text-muted-foreground">{card.region}</p>
-            <p className="text-xs text-primary animate-pulse">Tap to reveal</p>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center space-y-3"
+              >
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Identify this bone
+                </p>
+                <p className="text-2xl font-bold text-foreground">{card.name_en}</p>
+                <div className="flex gap-2 justify-center">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary">
+                    {card.region}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
+                    {card.subregion}
+                  </span>
+                </div>
+                {card.bilateral && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground">
+                    Bilateral (paired)
+                  </span>
+                )}
+              </motion.div>
+            </AnimatePresence>
+            <p className="text-xs text-primary animate-pulse mt-2">Tap to reveal Latin name</p>
           </div>
 
-          {/* ── BACK ── */}
+          {/* BACK — Latin name + details */}
           <div
             className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center p-6 gap-3"
             style={{
@@ -85,46 +123,27 @@ export default function Flashcards() {
               backdropFilter: "blur(12px)",
             }}
           >
-            {/* Bone icon as visual reference on back */}
-            <div className="w-14 h-14 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(14,165,233,0.15)", border: "1px solid rgba(14,165,233,0.3)" }}
-            >
-              <Bone size={24} className="text-primary" />
+            <p className="text-xs text-primary uppercase tracking-wider font-semibold">Latin Name</p>
+            <p className="text-2xl font-bold text-foreground text-center italic">{card.name_la}</p>
+            <div className="mt-3 space-y-2 text-center">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Region:</span> {card.region}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Subregion:</span> {card.subregion}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Bilateral:</span> {card.bilateral ? "Yes (paired)" : "No (unpaired)"}
+              </p>
+              <p className="text-xs text-muted-foreground/60 font-mono mt-2">
+                TA98: {card.id}
+              </p>
             </div>
-
-            <p className="text-xs text-primary uppercase tracking-wider font-semibold">
-              Answer
-            </p>
-            <p className="text-2xl font-bold text-foreground text-center">{card.name}</p>
-            <p className="text-xs text-muted-foreground italic">{card.latinName}</p>
-
-            {/* Description */}
-            <p className="text-sm text-muted-foreground text-center leading-relaxed max-w-md mt-1 line-clamp-3">
-              {card.description}
-            </p>
-
-            {/* Facts / Mnemonic fallback */}
-            {card.facts.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-1.5 mt-1">
-                {card.facts.slice(0, 2).map((fact, i) => (
-                  <span
-                    key={i}
-                    className="text-[10px] px-2 py-0.5 rounded-full text-primary/80"
-                    style={{
-                      background: "rgba(14,165,233,0.1)",
-                      border: "1px solid rgba(14,165,233,0.2)",
-                    }}
-                  >
-                    {fact}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </motion.div>
       </div>
 
-      {/* ── Controls ── */}
+      {/* Controls */}
       <div className="flex items-center justify-center gap-4">
         <button onClick={prev} className="p-2.5 rounded-xl bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors">
           <ChevronLeft size={20} />
