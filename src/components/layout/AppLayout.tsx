@@ -266,6 +266,7 @@ export default function AppLayout() {
           onClearSelection={handleClearSelection}
           onOpenDrawer={handleOpenDrawer}
           drawerOpen={drawerOpen}
+          viewerMode="moveable"
         />
       </div>
 
