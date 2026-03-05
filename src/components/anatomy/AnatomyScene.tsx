@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { SkeletonViewer } from "./SkeletonViewer";
 import { BoneModel } from "./BoneModel";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
-import type { ViewerMode } from "@/pages/AnatomyViewer";
+import type { ViewerMode } from "@/contexts/ViewModeContext";
 
 interface AnatomySceneProps {
   selectedPart: BonePart | null;
@@ -207,6 +207,7 @@ export function AnatomyScene({
               onHoverPart={onHoverPart}
               onClearSelection={onClearSelection}
               onOpenDrawer={onOpenDrawer}
+              viewerMode={viewerMode}
             />
             {isLabelled && <AtlasLabels />}
             <AutoFramer selectedPart={selectedPart} />
