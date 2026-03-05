@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
+import AnatomyViewer from "@/pages/AnatomyViewer";
 import Quiz from "@/pages/Quiz";
 import Flashcards from "@/pages/Flashcards";
 import Profile from "@/pages/Profile";
