@@ -163,7 +163,6 @@ export function ContextPanel({ part, onClose, onSelectPart }: ContextPanelProps)
                   {part.side === "left" ? "Left" : part.side === "right" ? "Right" : "Bilateral"}
                 </span>
               )}
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-mono">{part.ta98Id}</span>
             </div>
           </div>
 

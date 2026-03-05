@@ -107,36 +107,57 @@ function AtlasLabels() {
           key={bone.id}
           position={[bone.position[0], bone.position[1] + (bone.scale[1] * 0.5) + 0.15, bone.position[2]]}
           center
+          occlude
           zIndexRange={[150, 50]}
           style={{ pointerEvents: "none" }}
         >
           <div className="flex flex-col items-center" style={{ pointerEvents: "none" }}>
+            {/* Label pill */}
             <div
               style={{
                 fontSize: "9px",
                 fontWeight: 600,
                 color: "#fff",
-                background: "rgba(14,165,233,0.75)",
-                padding: "1px 6px",
+                background: "rgba(14,165,233,0.80)",
+                padding: "2px 7px",
                 borderRadius: "4px",
                 whiteSpace: "nowrap",
-                backdropFilter: "blur(4px)",
+                backdropFilter: "blur(6px)",
+                border: "1px solid rgba(125,211,252,0.35)",
                 lineHeight: 1.4,
+                boxShadow: "0 2px 8px rgba(14,165,233,0.3)",
               }}
             >
               {bone.name.replace(/^(Left|Right)\s/, "")}
             </div>
+            {/* Latin name */}
             <div
               style={{
                 fontSize: "7px",
                 fontStyle: "italic",
-                color: "rgba(255,255,255,0.6)",
+                color: "rgba(186,230,253,0.85)",
                 whiteSpace: "nowrap",
-                marginTop: "1px",
+                marginTop: "2px",
+                letterSpacing: "0.02em",
               }}
             >
               {bone.latinName.replace(/\s*\(.*\)$/, "")}
             </div>
+            {/* Leader line with terminal dot */}
+            <svg
+              width="2"
+              height="18"
+              viewBox="0 0 2 18"
+              style={{ display: "block", overflow: "visible", marginTop: "2px" }}
+            >
+              <line
+                x1="1" y1="0" x2="1" y2="14"
+                stroke="rgba(125,211,252,0.55)"
+                strokeWidth="1"
+                strokeDasharray="2 2"
+              />
+              <circle cx="1" cy="17" r="2" fill="rgba(14,165,233,0.85)" />
+            </svg>
           </div>
         </Html>
       ))}

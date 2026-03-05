@@ -3,7 +3,7 @@ import { AnatomyScene } from "@/components/anatomy/AnatomyScene";
 import { ContextPanel } from "@/components/anatomy/ContextPanel";
 import { PartsList } from "@/components/anatomy/PartsList";
 import type { BonePart } from "@/data/skeletalSystem";
-import { List, X, Move3D, Tag } from "lucide-react";
+import { List, X, ChevronDown, Move3D, Tag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -41,32 +41,41 @@ export default function AnatomyViewer() {
           {showList ? <X size={18} className="text-foreground" /> : <List size={18} className="text-foreground" />}
         </button>
 
-        {/* Mode toggle */}
-        <div className="glass-panel rounded-lg flex overflow-hidden">
-          <button
-            onClick={() => setViewerMode("moveable")}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
-              viewerMode === "moveable"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Moveable Mode — Explore with rotation & zoom"
+        {/* View Mode dropdown */}
+        <div
+          className="glass-panel rounded-lg flex items-center gap-2 px-2.5 py-1.5"
+          style={{ position: "relative" }}
+        >
+          {viewerMode === "moveable" ? (
+            <Move3D size={13} className="text-primary shrink-0" />
+          ) : (
+            <Tag size={13} className="text-primary shrink-0" />
+          )}
+          <select
+            value={viewerMode}
+            onChange={(e) => setViewerMode(e.target.value as ViewerMode)}
+            aria-label="View mode"
+            style={{
+              appearance: "none",
+              WebkitAppearance: "none",
+              background: "transparent",
+              color: "inherit",
+              border: "none",
+              outline: "none",
+              fontSize: "12px",
+              fontWeight: 500,
+              cursor: "pointer",
+              paddingRight: "18px",
+            }}
           >
-            <Move3D size={14} />
-            {!isMobile && "Explore"}
-          </button>
-          <button
-            onClick={() => setViewerMode("labelled")}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
-              viewerMode === "labelled"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Labelled Mode — Static atlas view with labels"
-          >
-            <Tag size={14} />
-            {!isMobile && "Atlas"}
-          </button>
+            <option value="moveable" style={{ background: "#1e2030" }}>Floating Mode</option>
+            <option value="labelled" style={{ background: "#1e2030" }}>Labelled Mode</option>
+          </select>
+          <ChevronDown
+            size={12}
+            className="text-muted-foreground shrink-0"
+            style={{ position: "absolute", right: "8px", pointerEvents: "none" }}
+          />
         </div>
       </div>
 
