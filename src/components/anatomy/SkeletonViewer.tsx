@@ -1,5 +1,11 @@
 /**
- * SkeletonViewer.tsx — Loads skeleton.glb with TA98-based bone identification
+ * SkeletonViewer.tsx — Loads skeleton.glb with bone identification
+ *
+ * Props added for dual-skeleton Atlas View:
+ *   xOffset      — horizontal translation of the whole skeleton group (default 0)
+ *   yRotation    — Y-axis rotation in radians (Math.PI for posterior view, default 0)
+ *   disableInteraction — when true, pointer events on the 3D model are skipped;
+ *                        selection must come from label clicks (default false)
  */
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
@@ -18,6 +24,12 @@ interface SkeletonViewerProps {
   onClearSelection: () => void;
   onOpenDrawer: () => void;
   viewerMode?: ViewerMode;
+  /** Horizontal offset for dual-skeleton layout (default 0) */
+  xOffset?: number;
+  /** Y-axis rotation in radians — Math.PI for posterior view (default 0) */
+  yRotation?: number;
+  /** Disable direct 3D model click/hover (labels handle selection) */
+  disableInteraction?: boolean;
 }
 
 const SELECTION_COLOR    = new THREE.Color("#00bfff");
@@ -127,7 +139,11 @@ function FloatingBoneLabel({ part, skullTopY, onOpenDrawer }: {
 }
 
 export function SkeletonViewer({
-  selectedPart, hoveredPart, onSelectPart, onHoverPart, onClearSelection, onOpenDrawer, viewerMode = "moveable",
+  selectedPart, hoveredPart, onSelectPart, onHoverPart, onClearSelection, onOpenDrawer,
+  viewerMode = "moveable",
+  xOffset = 0,
+  yRotation = 0,
+  disableInteraction = false,
 }: SkeletonViewerProps) {
   const { scene } = useGLTF("/models/skeleton.glb");
   const { gl, camera } = useThree();
@@ -180,6 +196,37 @@ export function SkeletonViewer({
 
   useEffect(() => { setReady(true); }, [preparedScene]);
 
+  // ── boneId → Set<meshUUID> map — enables label-triggered highlights ──────
+  const boneIdToUUIDs = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    preparedScene.traverse((child) => {
+      if (!(child as THREE.Mesh).isMesh) return;
+      const mesh = child as THREE.Mesh;
+      const boneId = (boneMap as Record<string, string>)[mesh.name];
+      if (boneId) {
+        if (!map.has(boneId)) map.set(boneId, new Set());
+        map.get(boneId)!.add(mesh.uuid);
+      }
+    });
+    return map;
+  }, [preparedScene]);
+
+  // When selectedPart changes (possibly from a label click with no mesh click),
+  // resolve the mesh UUID so the highlight still fires in useFrame.
+  useEffect(() => {
+    if (selectedPart) {
+      // If a mesh was already identified via direct click, keep it; otherwise look up by boneId
+      if (!clickedMeshUUIDRef.current) {
+        const uuids = boneIdToUUIDs.get(selectedPart.id);
+        if (uuids && uuids.size > 0) {
+          clickedMeshUUIDRef.current = [...uuids][0];
+        }
+      }
+    } else {
+      clickedMeshUUIDRef.current = null;
+    }
+  }, [selectedPart, boneIdToUUIDs]);
+
   const meshesRef = useRef<THREE.Mesh[]>([]);
   useEffect(() => {
     const meshes: THREE.Mesh[] = [];
@@ -216,6 +263,9 @@ export function SkeletonViewer({
   }, [castRay]);
 
   useEffect(() => {
+    // Skip registering pointer events when interaction is disabled (labelled mode)
+    if (disableInteraction) return;
+
     const canvas = gl.domElement;
     let downTime = 0, downX = 0, downY = 0;
 
@@ -242,7 +292,7 @@ export function SkeletonViewer({
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointermove", onPointerMove);
     };
-  }, [gl, identifyBone, identifyHoveredBone]);
+  }, [gl, identifyBone, identifyHoveredBone, disableInteraction]);
 
   useEffect(() => { if (!selectedPart) clickedMeshUUIDRef.current = null; }, [selectedPart]);
 
@@ -287,7 +337,7 @@ export function SkeletonViewer({
   if (!ready) return null;
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} position={[xOffset, 0, 0]} rotation={[0, yRotation, 0]}>
       <primitive object={preparedScene} />
       {selectedPart && viewerMode === "moveable" && (
         <FloatingBoneLabel part={selectedPart} skullTopY={skullTopY} onOpenDrawer={onOpenDrawer} />
