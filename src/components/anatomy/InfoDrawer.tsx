@@ -249,11 +249,6 @@ export function InfoDrawer({ part, isOpen, onClose, onSelectPart }: InfoDrawerPr
                 >
                   {part.name}
                 </h2>
-                {part.latinName && (
-                  <p className="text-xs font-mono text-sky-400 italic truncate mt-0.5">
-                    {part.latinName}
-                  </p>
-                )}
               </div>
               <button
                 onClick={onClose}

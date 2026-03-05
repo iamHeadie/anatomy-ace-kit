@@ -148,7 +148,6 @@ export function ContextPanel({ part, onClose, onSelectPart }: ContextPanelProps)
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-foreground truncate">{part.name}</h2>
-                <p className="text-xs font-mono text-primary italic truncate">{part.latinName}</p>
               </div>
               <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground shrink-0">
                 <X size={16} />

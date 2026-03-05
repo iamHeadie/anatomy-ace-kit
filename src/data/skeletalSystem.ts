@@ -189,7 +189,7 @@ const DEFAULT_SCALE: [number, number, number] = [0.1, 0.1, 0.1];
 // ── Description generator based on TA98 metadata ─────────────────────────
 function generateDescription(bone: TA98Bone): string {
   const bilateral = bone.bilateral ? " It is a paired (bilateral) bone." : " It is an unpaired bone.";
-  return `The ${bone.name_en} (${bone.name_la}) is located in the ${bone.subregion.toLowerCase()} of the ${bone.region.toLowerCase()}.${bilateral}`;
+  return `The ${bone.name_en} is located in the ${bone.subregion.toLowerCase()} of the ${bone.region.toLowerCase()}.${bilateral}`;
 }
 
 // ── Generate facts from TA98 data ─────────────────────────────────────────
