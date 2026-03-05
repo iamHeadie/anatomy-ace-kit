@@ -177,7 +177,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                       to="/viewer"
                       end
                       onClick={handleNav}
-                      className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                      className="flex-1 flex items-center gap-3 px-3 py-2.5 min-h-[48px] text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
                       activeClassName="!text-primary !bg-primary/15"
                     >
                       <Bone size={15} />
@@ -213,7 +213,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                         <div className="ml-6 mt-1 pb-1 space-y-0.5">
                           <button
                             onClick={() => setViewMode("moveable")}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg text-xs transition-colors"
+                            className="flex items-center gap-2 w-full px-3 py-1.5 min-h-[48px] rounded-lg text-xs transition-colors"
                             style={{
                               color: viewMode === "moveable" ? "#38bdf8" : undefined,
                               background:
@@ -231,7 +231,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                           </button>
                           <button
                             onClick={() => setViewMode("labelled")}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg text-xs transition-colors"
+                            className="flex items-center gap-2 w-full px-3 py-1.5 min-h-[48px] rounded-lg text-xs transition-colors"
                             style={{
                               color: viewMode === "labelled" ? "#38bdf8" : undefined,
                               background:
@@ -260,7 +260,7 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
                     to={item.to}
                     end={item.to === "/"}
                     onClick={handleNav}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                    className="flex items-center gap-3 px-3 py-2.5 min-h-[48px] rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
                     activeClassName="!text-primary !bg-primary/15"
                   >
                     <item.icon size={15} />

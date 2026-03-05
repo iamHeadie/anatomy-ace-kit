@@ -78,7 +78,6 @@ export function PartsList({ selectedPart, onSelectPart, onHoverPart }: PartsList
                 }`}
               >
                 <span className="block">{bone.name}</span>
-                <span className="text-[10px] text-muted-foreground/60 italic">{bone.latinName}</span>
               </button>
             ))}
           </div>
