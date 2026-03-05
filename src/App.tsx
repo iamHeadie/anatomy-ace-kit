@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
+import AnatomyViewer from "@/pages/AnatomyViewer";
 import Quiz from "@/pages/Quiz";
 import Flashcards from "@/pages/Flashcards";
 import Profile from "@/pages/Profile";
@@ -39,7 +40,7 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/viewer" element={<div />} />
+              <Route path="/viewer" element={<AnatomyViewer />} />
               <Route path="/quiz" element={<Quiz />} />
               <Route path="/flashcards" element={<Flashcards />} />
               <Route path="/profile" element={<Profile />} />
