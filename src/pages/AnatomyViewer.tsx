@@ -3,9 +3,15 @@ import { AnatomyScene } from "@/components/anatomy/AnatomyScene";
 import { ContextPanel } from "@/components/anatomy/ContextPanel";
 import { PartsList } from "@/components/anatomy/PartsList";
 import type { BonePart } from "@/data/skeletalSystem";
-import { List, X, ChevronDown, Move3D, Tag } from "lucide-react";
+import { List, X, Move3D, Tag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export type ViewerMode = "moveable" | "labelled";
 
@@ -42,41 +48,34 @@ export default function AnatomyViewer() {
         </button>
 
         {/* View Mode dropdown */}
-        <div
-          className="glass-panel rounded-lg flex items-center gap-2 px-2.5 py-1.5"
-          style={{ position: "relative" }}
-        >
-          {viewerMode === "moveable" ? (
-            <Move3D size={13} className="text-primary shrink-0" />
-          ) : (
-            <Tag size={13} className="text-primary shrink-0" />
-          )}
-          <select
-            value={viewerMode}
-            onChange={(e) => setViewerMode(e.target.value as ViewerMode)}
-            aria-label="View mode"
-            style={{
-              appearance: "none",
-              WebkitAppearance: "none",
-              background: "transparent",
-              color: "inherit",
-              border: "none",
-              outline: "none",
-              fontSize: "12px",
-              fontWeight: 500,
-              cursor: "pointer",
-              paddingRight: "18px",
-            }}
-          >
-            <option value="moveable" style={{ background: "#1e2030" }}>Floating Mode</option>
-            <option value="labelled" style={{ background: "#1e2030" }}>Labelled Mode</option>
-          </select>
-          <ChevronDown
-            size={12}
-            className="text-muted-foreground shrink-0"
-            style={{ position: "absolute", right: "8px", pointerEvents: "none" }}
-          />
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="glass-panel rounded-lg flex items-center gap-2 px-3 py-2 hover:bg-secondary/60 transition-colors text-xs font-medium text-foreground outline-none">
+              {viewerMode === "moveable" ? (
+                <Move3D size={14} className="text-primary shrink-0" />
+              ) : (
+                <Tag size={14} className="text-primary shrink-0" />
+              )}
+              {viewerMode === "moveable" ? "Floating Mode" : "Labelled Mode"}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-[160px]">
+            <DropdownMenuItem
+              onClick={() => setViewerMode("moveable")}
+              className={viewerMode === "moveable" ? "text-primary" : ""}
+            >
+              <Move3D size={14} className="mr-2 shrink-0" />
+              Floating Mode
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setViewerMode("labelled")}
+              className={viewerMode === "labelled" ? "text-primary" : ""}
+            >
+              <Tag size={14} className="mr-2 shrink-0" />
+              Labelled Mode
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Sliding bone list panel */}
