@@ -148,6 +148,7 @@ export function ContextPanel({ part, onClose, onSelectPart }: ContextPanelProps)
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-foreground truncate">{part.name}</h2>
+                <p className="text-xs text-primary italic mt-0.5 truncate">{part.latinName}</p>
               </div>
               <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground shrink-0">
                 <X size={16} />
@@ -182,12 +183,18 @@ export function ContextPanel({ part, onClose, onSelectPart }: ContextPanelProps)
                 Key Facts
               </div>
               <ul className="space-y-1">
-                {part.facts.map((fact, i) => (
-                  <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                    <span className="text-primary mt-0.5 text-[8px]">●</span>
-                    {fact}
-                  </li>
-                ))}
+                <li className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <span className="text-primary mt-0.5 text-[8px]">●</span>
+                  Region: {part.region}
+                </li>
+                <li className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <span className="text-primary mt-0.5 text-[8px]">●</span>
+                  Subregion: {part.subregion}
+                </li>
+                <li className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <span className="text-primary mt-0.5 text-[8px]">●</span>
+                  {part.bilateral ? "Bilateral (paired) bone" : "Unpaired (midline) bone"}
+                </li>
               </ul>
             </div>
 
