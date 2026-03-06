@@ -109,10 +109,10 @@ export default function Flashcards() {
                 )}
               </motion.div>
             </AnimatePresence>
-            <p className="text-xs text-primary animate-pulse mt-2">Tap to reveal Latin name</p>
+            <p className="text-xs text-primary animate-pulse mt-2">Tap to reveal details</p>
           </div>
 
-          {/* BACK — Latin name + details */}
+          {/* BACK — Region & details */}
           <div
             className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center p-6 gap-3"
             style={{
@@ -123,8 +123,8 @@ export default function Flashcards() {
               backdropFilter: "blur(12px)",
             }}
           >
-            <p className="text-xs text-primary uppercase tracking-wider font-semibold">Latin Name</p>
-            <p className="text-2xl font-bold text-foreground text-center italic">{card.name_la}</p>
+            <p className="text-xs text-primary uppercase tracking-wider font-semibold">Details</p>
+            <p className="text-2xl font-bold text-foreground text-center">{card.name_en}</p>
             <div className="mt-3 space-y-2 text-center">
               <p className="text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">Region:</span> {card.region}
@@ -134,9 +134,6 @@ export default function Flashcards() {
               </p>
               <p className="text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">Bilateral:</span> {card.bilateral ? "Yes (paired)" : "No (unpaired)"}
-              </p>
-              <p className="text-xs text-muted-foreground/60 font-mono mt-2">
-                TA98: {card.id}
               </p>
             </div>
           </div>
