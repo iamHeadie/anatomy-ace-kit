@@ -41,7 +41,7 @@ function generateQuestions(round: number): Question[] {
   const rng = seededRandom(seed);
   const bones = shuffle([...ta98Bones], rng);
   const questions: Question[] = [];
-  const types: QuestionType[] = ["terminology", "classification", "symmetry"];
+  const types: QuestionType[] = ["classification", "symmetry"];
 
   for (let i = 0; i < DAILY_QUESTION_COUNT && i < bones.length; i++) {
     const bone = bones[i];

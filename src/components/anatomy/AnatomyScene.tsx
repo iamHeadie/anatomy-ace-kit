@@ -658,7 +658,7 @@ export function AnatomyScene({
           <OrbitControls
             enablePan={true}
             enableZoom={true}
-            enableRotate={!isLabelled}
+            enableRotate={true}
             minDistance={1.5}
             maxDistance={28}
             target={[0, 0.65, 0]}
