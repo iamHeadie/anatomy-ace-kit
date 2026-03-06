@@ -596,7 +596,7 @@ export function AnatomyScene({
                   viewerMode={viewerMode}
                   xOffset={-DUAL_OFFSET}
                   yRotation={0}
-                  disableInteraction={true}
+                  disableInteraction={false}
                 />
 
                 {/* ── Posterior skeleton — right half (rotated π) ───────── */}
@@ -610,7 +610,7 @@ export function AnatomyScene({
                   viewerMode={viewerMode}
                   xOffset={DUAL_OFFSET}
                   yRotation={Math.PI}
-                  disableInteraction={true}
+                  disableInteraction={false}
                 />
 
                 {/* Anterior projection tracker */}
