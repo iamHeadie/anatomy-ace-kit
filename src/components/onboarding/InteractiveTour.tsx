@@ -431,67 +431,99 @@ interface InteractiveTourProps {
   onOpenSidebar: () => void;
   /** Callback to programmatically close the app sidebar */
   onCloseSidebar: () => void;
+  /**
+   * When true the tour starts unconditionally (ignores the localStorage key).
+   * Pass this for freshly signed-up users so the guide always fires on their
+   * first login, even on devices that already have the key set.
+   */
+  isNewUser?: boolean;
+  /**
+   * Called once the tour has been shown (or skipped) so the parent can clear
+   * the new-user flag in auth state.
+   */
+  onComplete?: () => void;
 }
 
 export function InteractiveTour({
   onOpenSidebar,
   onCloseSidebar,
+  isNewUser = false,
+  onComplete,
 }: InteractiveTourProps) {
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<TargetRect | null>(null);
   const { width: winW, height: winH } = useWindowSize();
 
-  // ── Auto-start: fires once if the user has never completed the tour ──
+  // ── Auto-start: fires for new users OR if localStorage key is absent ──
   useEffect(() => {
-    if (!localStorage.getItem(TOUR_KEY)) {
+    if (isNewUser || !localStorage.getItem(TOUR_KEY)) {
       const t = setTimeout(() => setActive(true), 1500);
       return () => clearTimeout(t);
     }
-  }, []);
+  // isNewUser is intentionally the only reactive dep here; we want this to
+  // re-evaluate when the parent signals a fresh sign-up mid-session.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNewUser]);
 
-  // ── Locate the spotlight target whenever step or window size changes ──
-  const locateTarget = useCallback(
-    (targetId: string) => {
+  // ── Locate the spotlight target with retry polling ─────────────────────
+  //
+  // The sidebar is conditionally rendered (AnimatePresence), so immediately
+  // after onOpenSidebar() the target element may not yet be in the DOM.
+  // We retry every 100 ms for up to 1.5 s (15 attempts) until the element
+  // has non-zero dimensions, then commit its rect.
+  const locateTarget = useCallback((targetId: string) => {
+    let attempts = 15;
+    const tryFind = () => {
       const el = document.getElementById(targetId);
       if (el) {
         const r = el.getBoundingClientRect();
-        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+        if (r.width > 0 && r.height > 0) {
+          setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+          return;
+        }
       }
-    },
-    []
-  );
+      if (attempts-- > 0) setTimeout(tryFind, 100);
+    };
+    tryFind();
+  }, []);
 
+  // ── Step-change effect: open/close sidebar then locate target ──────────
   useEffect(() => {
     if (!active) return;
 
     const s = STEPS[step];
 
     if (s.requiresSidebar && s.targetId) {
-      // Open sidebar, then wait for the slide-in animation to settle
+      // Open sidebar, then start polling for the target once it mounts
       onOpenSidebar();
-      setRect(null); // clear old rect while sidebar animates
-      const t = setTimeout(() => locateTarget(s.targetId!), 420);
-      return () => clearTimeout(t);
+      setRect(null); // clear old rect while sidebar slides in
+      locateTarget(s.targetId);
     } else {
       onCloseSidebar();
       setRect(null);
     }
   }, [step, active, onOpenSidebar, onCloseSidebar, locateTarget]);
 
-  // Re-locate on window resize (handles orientation changes)
+  // ── Re-locate on window resize (handles orientation changes) ──────────
+  // Note: step is intentionally excluded from these deps so that resize
+  // re-runs only when the window actually changes, not on every step tick.
   useEffect(() => {
     if (!active) return;
     const s = STEPS[step];
-    if (s.targetId) locateTarget(s.targetId);
-  }, [winW, winH, active, step, locateTarget]);
+    if (s.targetId && rect) locateTarget(s.targetId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [winW, winH]);
 
   // ── Actions ──────────────────────────────────────────────────────────
   const complete = useCallback(() => {
     localStorage.setItem(TOUR_KEY, "true");
     setActive(false);
     onCloseSidebar();
-  }, [onCloseSidebar]);
+    // Notify the parent (e.g. AppLayout) so it can clear the isNewUser flag
+    // in AuthContext, preventing the tour from firing again this session.
+    onComplete?.();
+  }, [onCloseSidebar, onComplete]);
 
   const handleNext = useCallback(() => {
     if (step < STEPS.length - 1) setStep((s) => s + 1);

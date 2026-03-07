@@ -21,6 +21,10 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  /** True immediately after a successful signUp() — cleared by clearNewUser(). */
+  isNewUser: boolean;
+  /** Call once the onboarding tour has been shown to reset the new-user flag. */
+  clearNewUser: () => void;
   signUp: (email: string, password: string, username: string, department: string, occupation: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -35,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   const fetchProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
@@ -91,6 +96,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.from("profiles").update({ department, occupation, username }).eq("user_id", newUser.id);
       await fetchProfile(newUser.id);
     }
+    // Mark as new user so the onboarding tour fires even if localStorage was
+    // previously set (e.g. the user signed up, cleared storage, and re-signed up).
+    setIsNewUser(true);
     return { error: null };
   };
 
@@ -115,8 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchProfile(user.id);
   };
 
+  const clearNewUser = () => setIsNewUser(false);
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, updateProfile, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, isNewUser, clearNewUser, signUp, signIn, signOut, updateProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
