@@ -305,6 +305,7 @@ export default function AppLayout() {
   const location = useLocation();
   const isViewer = location.pathname === "/viewer";
   const { viewMode } = useViewMode();
+  const { isNewUser, clearNewUser } = useAuth();
 
   // Lifted sidebar open state — shared between ProfileHeaderHUD (trigger) and
   // CommandCenter (sidebar + backdrop).
@@ -334,6 +335,8 @@ export default function AppLayout() {
       <InteractiveTour
         onOpenSidebar={() => setSidebarOpen(true)}
         onCloseSidebar={() => setSidebarOpen(false)}
+        isNewUser={isNewUser}
+        onComplete={clearNewUser}
       />
       {/* 3D Canvas — always full background */}
       <div className="absolute inset-0 z-[1]">
