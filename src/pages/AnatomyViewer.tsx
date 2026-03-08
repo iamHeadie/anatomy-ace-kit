@@ -3,24 +3,13 @@ import { AnatomyScene } from "@/components/anatomy/AnatomyScene";
 import { ContextPanel } from "@/components/anatomy/ContextPanel";
 import { PartsList } from "@/components/anatomy/PartsList";
 import type { BonePart } from "@/data/skeletalSystem";
-import { List, X, Move3D, Tag } from "lucide-react";
+import { List, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-
-export type ViewerMode = "moveable" | "labelled";
 
 export default function AnatomyViewer() {
   const [selectedPart, setSelectedPart] = useState<BonePart | null>(null);
   const [hoveredPart, setHoveredPart] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
-  const [viewerMode, setViewerMode] = useState<ViewerMode>("moveable");
-  const isMobile = useIsMobile();
 
   return (
     <div className="relative w-full h-[calc(100vh-3.5rem)] bg-background overflow-hidden">
@@ -33,12 +22,10 @@ export default function AnatomyViewer() {
         onClearSelection={() => setSelectedPart(null)}
         onOpenDrawer={() => {}}
         drawerOpen={!!selectedPart}
-        viewerMode={viewerMode}
       />
 
-      {/* Top bar: toggle + mode switch */}
+      {/* Top bar: bone list toggle */}
       <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
-        {/* Bone list toggle */}
         <button
           onClick={() => setShowList(!showList)}
           className="glass-panel p-2.5 rounded-lg hover:bg-secondary transition-colors"
@@ -46,36 +33,6 @@ export default function AnatomyViewer() {
         >
           {showList ? <X size={18} className="text-foreground" /> : <List size={18} className="text-foreground" />}
         </button>
-
-        {/* View Mode dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="glass-panel rounded-lg flex items-center gap-2 px-3 py-2 hover:bg-secondary/60 transition-colors text-xs font-medium text-foreground outline-none">
-              {viewerMode === "moveable" ? (
-                <Move3D size={14} className="text-primary shrink-0" />
-              ) : (
-                <Tag size={14} className="text-primary shrink-0" />
-              )}
-              {viewerMode === "moveable" ? "Floating Mode" : "Labelled Mode"}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[160px]">
-            <DropdownMenuItem
-              onClick={() => setViewerMode("moveable")}
-              className={viewerMode === "moveable" ? "text-primary" : ""}
-            >
-              <Move3D size={14} className="mr-2 shrink-0" />
-              Floating Mode
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setViewerMode("labelled")}
-              className={viewerMode === "labelled" ? "text-primary" : ""}
-            >
-              <Tag size={14} className="mr-2 shrink-0" />
-              Labelled Mode
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       {/* Sliding bone list panel */}

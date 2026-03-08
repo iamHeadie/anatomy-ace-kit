@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { ViewModeProvider } from "@/contexts/ViewModeContext";
 import AppLayout from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import AnatomyViewer from "@/pages/AnatomyViewer";
@@ -37,7 +36,6 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <ViewModeProvider>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -49,7 +47,6 @@ const App = () => (
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
-          </ViewModeProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
