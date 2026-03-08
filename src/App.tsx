@@ -9,6 +9,8 @@ import Dashboard from "@/pages/Dashboard";
 import AnatomyViewer from "@/pages/AnatomyViewer";
 import Quiz from "@/pages/Quiz";
 import Flashcards from "@/pages/Flashcards";
+import MuscleFlashcards from "@/pages/MuscleFlashcards";
+import MuscleQuiz from "@/pages/MuscleQuiz";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -43,6 +45,8 @@ const App = () => (
               <Route path="/viewer" element={<AnatomyViewer />} />
               <Route path="/quiz" element={<Quiz />} />
               <Route path="/flashcards" element={<Flashcards />} />
+              <Route path="/muscle-flashcards" element={<MuscleFlashcards />} />
+              <Route path="/muscle-quiz" element={<MuscleQuiz />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
             <Route path="*" element={<NotFound />} />

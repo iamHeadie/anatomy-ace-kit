@@ -23,6 +23,8 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, tourId: "tour-dashboard" },
   { to: "/quiz", label: "Quiz", icon: BookOpen, tourId: "tour-quiz" },
   { to: "/flashcards", label: "Flashcards", icon: Layers, tourId: "tour-flashcards" },
+  { to: "/muscle-quiz", label: "Muscle Quiz", icon: BookOpen, tourId: "tour-muscle-quiz" },
+  { to: "/muscle-flashcards", label: "Muscle Flashcards", icon: Layers, tourId: "tour-muscle-flashcards" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
