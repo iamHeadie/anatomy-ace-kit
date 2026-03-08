@@ -1,11 +1,5 @@
 /**
  * SkeletonViewer.tsx — Loads skeleton.glb with bone identification
- *
- * Props added for dual-skeleton Atlas View:
- *   xOffset      — horizontal translation of the whole skeleton group (default 0)
- *   yRotation    — Y-axis rotation in radians (Math.PI for posterior view, default 0)
- *   disableInteraction — when true, pointer events on the 3D model are skipped;
- *                        selection must come from label clicks (default false)
  */
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
@@ -13,7 +7,6 @@ import { useGLTF, Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
-import type { ViewerMode } from "@/contexts/ViewModeContext";
 import { boneMap } from "@/data/modelRegistry";
 
 interface SkeletonViewerProps {
@@ -23,13 +16,6 @@ interface SkeletonViewerProps {
   onHoverPart: (id: string | null) => void;
   onClearSelection: () => void;
   onOpenDrawer: () => void;
-  viewerMode?: ViewerMode;
-  /** Horizontal offset for dual-skeleton layout (default 0) */
-  xOffset?: number;
-  /** Y-axis rotation in radians — Math.PI for posterior view (default 0) */
-  yRotation?: number;
-  /** Disable direct 3D model click/hover (labels handle selection) */
-  disableInteraction?: boolean;
 }
 
 const SELECTION_COLOR    = new THREE.Color("#00bfff");
@@ -140,11 +126,10 @@ function FloatingBoneLabel({ part, skullTopY, onOpenDrawer }: {
 
 export function SkeletonViewer({
   selectedPart, hoveredPart, onSelectPart, onHoverPart, onClearSelection, onOpenDrawer,
-  viewerMode = "moveable",
-  xOffset = 0,
-  yRotation = 0,
-  disableInteraction = false,
 }: SkeletonViewerProps) {
+  const xOffset = 0;
+  const yRotation = 0;
+  const disableInteraction = false;
   const { scene } = useGLTF("/models/skeleton.glb");
   const { gl, camera } = useThree();
   const groupRef = useRef<THREE.Group>(null);
@@ -263,7 +248,6 @@ export function SkeletonViewer({
   }, [castRay]);
 
   useEffect(() => {
-    // Skip registering pointer events when interaction is disabled (labelled mode)
     if (disableInteraction) return;
 
     const canvas = gl.domElement;
@@ -339,7 +323,7 @@ export function SkeletonViewer({
   return (
     <group ref={groupRef} position={[xOffset, 0, 0]} rotation={[0, yRotation, 0]}>
       <primitive object={preparedScene} />
-      {selectedPart && viewerMode === "moveable" && (
+      {selectedPart && (
         <FloatingBoneLabel part={selectedPart} skullTopY={skullTopY} onOpenDrawer={onOpenDrawer} />
       )}
     </group>

@@ -8,9 +8,6 @@ import {
   Settings,
   X,
   LogOut,
-  ChevronDown,
-  Move3D,
-  Tag,
 } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AnatomyScene } from "@/components/anatomy/AnatomyScene";
@@ -18,7 +15,6 @@ import { InfoDrawer } from "@/components/anatomy/InfoDrawer";
 import type { BonePart } from "@/data/skeletalSystem";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { useViewMode } from "@/contexts/ViewModeContext";
 import { getRank, getRankProgress } from "@/data/rankSystem";
 import { ProfileHeaderHUD } from "@/components/layout/ProfileHeaderHUD";
 import { InteractiveTour, TourTriggerButton } from "@/components/onboarding/InteractiveTour";
@@ -43,7 +39,6 @@ interface CommandCenterProps {
 
 function CommandCenter({ open, onClose }: CommandCenterProps) {
   const { profile, signOut } = useAuth();
-  const { viewMode, setViewMode } = useViewMode();
   const xp = profile?.xp ?? 0;
   const rank = getRank(xp);
   const progress = getRankProgress(xp);
@@ -51,7 +46,6 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
   const department = profile?.department || "";
   const avatar = profile?.avatar || "💀";
 
-  const [viewerExpanded, setViewerExpanded] = useState(false);
   const handleNav = () => onClose();
 
   return (
@@ -170,88 +164,17 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
               </p>
 
               <div className="space-y-2">
-                {/* 3D Systems — collapsible with view mode selector */}
-                <div>
-                  <div className="flex items-stretch rounded-lg overflow-hidden">
-                    <NavLink
-                      to="/viewer"
-                      end
-                      onClick={handleNav}
-                      className="flex-1 flex items-center gap-3 px-3 py-2.5 min-h-[48px] text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
-                      activeClassName="!text-primary !bg-primary/15"
-                    >
-                      <Bone size={15} />
-                      <span className="flex-1">3D Systems</span>
-                    </NavLink>
-                    <button
-                      onClick={() => setViewerExpanded((v) => !v)}
-                      aria-label="Toggle view mode selector"
-                      className="px-2 text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
-                      style={{ borderLeft: "1px solid rgba(255,255,255,0.06)" }}
-                    >
-                      <ChevronDown
-                        size={12}
-                        style={{
-                          transition: "transform 0.2s",
-                          transform: viewerExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                        }}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Animated sub-menu */}
-                  <AnimatePresence>
-                    {viewerExpanded && (
-                      <motion.div
-                        key="viewer-sub"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.18 }}
-                        style={{ overflow: "hidden" }}
-                      >
-                        <div className="ml-6 mt-1 pb-1 space-y-0.5">
-                          <button
-                            onClick={() => setViewMode("moveable")}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 min-h-[48px] rounded-lg text-xs transition-colors"
-                            style={{
-                              color: viewMode === "moveable" ? "#38bdf8" : undefined,
-                              background:
-                                viewMode === "moveable"
-                                  ? "rgba(14,165,233,0.12)"
-                                  : "transparent",
-                              border:
-                                viewMode === "moveable"
-                                  ? "1px solid rgba(14,165,233,0.25)"
-                                  : "1px solid transparent",
-                            }}
-                          >
-                            <Move3D size={11} />
-                            Floating Mode
-                          </button>
-                          <button
-                            onClick={() => setViewMode("labelled")}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 min-h-[48px] rounded-lg text-xs transition-colors"
-                            style={{
-                              color: viewMode === "labelled" ? "#38bdf8" : undefined,
-                              background:
-                                viewMode === "labelled"
-                                  ? "rgba(14,165,233,0.12)"
-                                  : "transparent",
-                              border:
-                                viewMode === "labelled"
-                                  ? "1px solid rgba(14,165,233,0.25)"
-                                  : "1px solid transparent",
-                            }}
-                          >
-                            <Tag size={11} />
-                            Labelled Mode
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                {/* 3D Systems */}
+                <NavLink
+                  to="/viewer"
+                  end
+                  onClick={handleNav}
+                  className="flex items-center gap-3 px-3 py-2.5 min-h-[48px] rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                  activeClassName="!text-primary !bg-primary/15"
+                >
+                  <Bone size={15} />
+                  <span className="flex-1">3D Systems</span>
+                </NavLink>
 
                 {navItems.map((item) => (
                   <NavLink
@@ -304,7 +227,6 @@ function CommandCenter({ open, onClose }: CommandCenterProps) {
 export default function AppLayout() {
   const location = useLocation();
   const isViewer = location.pathname === "/viewer";
-  const { viewMode } = useViewMode();
   const { isNewUser, clearNewUser } = useAuth();
 
   // Lifted sidebar open state — shared between ProfileHeaderHUD (trigger) and
@@ -348,7 +270,6 @@ export default function AppLayout() {
           onClearSelection={handleClearSelection}
           onOpenDrawer={handleOpenDrawer}
           drawerOpen={drawerOpen}
-          viewerMode={viewMode}
         />
       </div>
 
