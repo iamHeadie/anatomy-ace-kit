@@ -40,7 +40,8 @@ const rawBones: TA98Bone[] = (bonesJson as { bones: TA98Bone[] }).bones;
 
 // ── Position database — maps TA98 IDs to world-space coordinates ──────────
 // These match the normalised skeleton.glb (7-unit height, pelvis at origin)
-const positionDb: Record<string, { pos: [number, number, number]; scale: [number, number, number] }> = {
+// Exported so muscularSystem.ts can derive muscle centroid positions from bone data.
+export const positionDb: Record<string, { pos: [number, number, number]; scale: [number, number, number] }> = {
   // Cranial bones
   "A02.1.02.001": { pos: [0, 4.1, 0.25], scale: [0.5, 0.3, 0.1] },       // Frontal
   "A02.1.02.101": { pos: [0.2, 4.2, -0.05], scale: [0.25, 0.3, 0.25] },   // Parietal (L)
@@ -287,7 +288,7 @@ export const ta98Bones: TA98Bone[] = rawBones;
 // ── Body systems (for sidebar) ────────────────────────────────────────────
 export const bodySystems = [
   { id: "skeletal", name: "Skeletal", icon: "🦴", color: "bone", partCount: skeletalParts.length },
-  { id: "muscular", name: "Muscular", icon: "💪", color: "muscle", partCount: 0 },
+  { id: "muscular", name: "Muscular", icon: "💪", color: "muscle", partCount: 47 },
   { id: "nervous", name: "Nervous", icon: "⚡", color: "nerve", partCount: 0 },
   { id: "circulatory", name: "Circulatory", icon: "❤️", color: "destructive", partCount: 0 },
   { id: "respiratory", name: "Respiratory", icon: "🫁", color: "primary", partCount: 0 },
