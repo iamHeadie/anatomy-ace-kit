@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ta98Bones, type TA98Bone } from "@/data/skeletalSystem";
+import { ta98Bones } from "@/data/skeletalSystem";
+import { ta98Muscles } from "@/data/muscularSystem";
 import { CheckCircle, XCircle, ArrowRight, Calendar } from "lucide-react";
 import { useUserState } from "@/hooks/useUserState";
 
@@ -24,11 +25,9 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
   return a;
 }
 
-// ── Three question types ─────────────────────────────────────────────────
-type QuestionType = "terminology" | "classification" | "symmetry";
-
 interface Question {
-  type: QuestionType;
+  type: string;
+  typeLabel: string;
   question: string;
   correctAnswer: string;
   options: string[];
@@ -36,72 +35,92 @@ interface Question {
 
 const DAILY_QUESTION_COUNT = 20;
 
-function generateQuestions(round: number): Question[] {
+function generateSkeletalQuestions(round: number): Question[] {
   const seed = getDailySeed() + round;
   const rng = seededRandom(seed);
   const bones = shuffle([...ta98Bones], rng);
   const questions: Question[] = [];
-  const types: QuestionType[] = ["classification", "symmetry"];
+  const types = ["classification", "symmetry"] as const;
 
   for (let i = 0; i < DAILY_QUESTION_COUNT && i < bones.length; i++) {
     const bone = bones[i];
     const type = types[Math.floor(rng() * types.length)];
-
-    // Get distractors from the same region for harder questions
     const sameRegion = ta98Bones.filter((b) => b.region === bone.region && b.id !== bone.id);
     const otherBones = ta98Bones.filter((b) => b.id !== bone.id);
     const distractorPool = sameRegion.length >= 3 ? sameRegion : otherBones;
 
     switch (type) {
-      case "terminology": {
-        // "What is the Latin name for [name_en]?"
-        const wrongAnswers = shuffle(distractorPool, rng).slice(0, 3).map((b) => b.name_la);
-        const options = shuffle([bone.name_la, ...wrongAnswers], rng);
-        questions.push({
-          type,
-          question: `What is the Latin name for the ${bone.name_en}?`,
-          correctAnswer: bone.name_la,
-          options,
-        });
-        break;
-      }
       case "classification": {
-        // "Which region/subregion does [name_en] belong to?"
         const allRegions = [...new Set(ta98Bones.map((b) => b.region))];
         const wrongRegions = shuffle(allRegions.filter((r) => r !== bone.region), rng).slice(0, 3);
         const options = shuffle([bone.region, ...wrongRegions], rng);
-        questions.push({
-          type,
-          question: `Which region does the ${bone.name_en} belong to?`,
-          correctAnswer: bone.region,
-          options,
-        });
+        questions.push({ type, typeLabel: "📂 Classification", question: `Which region does the ${bone.name_en} belong to?`, correctAnswer: bone.region, options });
         break;
       }
       case "symmetry": {
-        // "Is the [name_en] a bilateral (paired) bone?" (True/False style with 4 options)
         const answer = bone.bilateral ? "Yes — bilateral (paired)" : "No — unpaired (midline)";
-        const options = [
-          "Yes — bilateral (paired)",
-          "No — unpaired (midline)",
-        ];
-        questions.push({
-          type,
-          question: `Is the ${bone.name_en} a bilateral (paired) bone?`,
-          correctAnswer: answer,
-          options,
-        });
+        questions.push({ type, typeLabel: "🔄 Symmetry", question: `Is the ${bone.name_en} a bilateral (paired) bone?`, correctAnswer: answer, options: ["Yes — bilateral (paired)", "No — unpaired (midline)"] });
+        break;
+      }
+    }
+    void distractorPool;
+  }
+  return questions;
+}
+
+function generateMuscularQuestions(round: number): Question[] {
+  const seed = getDailySeed() + round + 1000;
+  const rng = seededRandom(seed);
+  const muscles = shuffle([...ta98Muscles], rng);
+  const questions: Question[] = [];
+  const types = ["terminology", "classification", "action", "nerve"] as const;
+
+  for (let i = 0; i < DAILY_QUESTION_COUNT && i < muscles.length; i++) {
+    const muscle = muscles[i];
+    const type = types[Math.floor(rng() * types.length)];
+    const sameRegion = ta98Muscles.filter((m) => m.region === muscle.region && m.id !== muscle.id);
+    const otherMuscles = ta98Muscles.filter((m) => m.id !== muscle.id);
+    const distractorPool = sameRegion.length >= 3 ? sameRegion : otherMuscles;
+
+    switch (type) {
+      case "terminology": {
+        const wrongAnswers = shuffle(distractorPool, rng).slice(0, 3).map((m) => m.name_la);
+        const options = shuffle([muscle.name_la, ...wrongAnswers], rng);
+        questions.push({ type, typeLabel: "🔤 Terminology", question: `What is the Latin name for the ${muscle.name_en}?`, correctAnswer: muscle.name_la, options });
+        break;
+      }
+      case "classification": {
+        const allRegions = [...new Set(ta98Muscles.map((m) => m.region))];
+        const wrongRegions = shuffle(allRegions.filter((r) => r !== muscle.region), rng).slice(0, 3);
+        const options = shuffle([muscle.region, ...wrongRegions], rng);
+        questions.push({ type, typeLabel: "📂 Classification", question: `Which region does the ${muscle.name_en} belong to?`, correctAnswer: muscle.region, options });
+        break;
+      }
+      case "action": {
+        const wrongActions = shuffle(distractorPool, rng).slice(0, 3).map((m) => m.action);
+        const options = shuffle([muscle.action, ...wrongActions], rng);
+        questions.push({ type, typeLabel: "💪 Action", question: `What is the primary action of the ${muscle.name_en}?`, correctAnswer: muscle.action, options });
+        break;
+      }
+      case "nerve": {
+        const wrongNerves = shuffle(distractorPool, rng).slice(0, 3).map((m) => m.nerve);
+        const options = shuffle([muscle.nerve, ...wrongNerves], rng);
+        questions.push({ type, typeLabel: "⚡ Innervation", question: `Which nerve innervates the ${muscle.name_en}?`, correctAnswer: muscle.nerve, options });
         break;
       }
     }
   }
-
   return questions;
 }
 
-export default function Quiz() {
+type System = "skeletal" | "muscular";
+
+function QuizEngine({ system }: { system: System }) {
   const [round, setRound] = useState(0);
-  const questions = useMemo(() => generateQuestions(round), [round]);
+  const questions = useMemo(
+    () => system === "skeletal" ? generateSkeletalQuestions(round) : generateMuscularQuestions(round),
+    [system, round]
+  );
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
@@ -122,7 +141,6 @@ export default function Quiz() {
     const newScore = { correct: score.correct + (isCorrect ? 1 : 0), total: score.total + 1 };
     setScore(newScore);
     setSelected(null);
-
     if (qIndex + 1 >= questions.length) {
       recordQuizComplete();
       setFinished(true);
@@ -141,46 +159,35 @@ export default function Quiz() {
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
-  const typeLabels: Record<QuestionType, string> = {
-    terminology: "🔤 Terminology",
-    classification: "📂 Classification",
-    symmetry: "🔄 Symmetry",
-  };
-
   if (finished) {
     const pct = Math.round((score.correct / score.total) * 100);
     return (
-      <div className="p-6 max-w-2xl mx-auto space-y-8">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel p-8 text-center space-y-4">
-          <p className="text-5xl font-bold text-primary">{pct}%</p>
-          <p className="text-lg text-foreground font-medium">
-            You got {score.correct} out of {score.total} correct
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {pct >= 80 ? "Excellent work! 🎉" : pct >= 50 ? "Good effort! Keep studying 💪" : "Keep practicing! 📚"}
-          </p>
-          <p className="text-xs text-primary font-medium">+{score.correct * 10} XP earned!</p>
-          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
-            <Calendar size={14} />
-            <span>Come back tomorrow for new questions</span>
-          </div>
-          <button onClick={restart} className="mt-4 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-            Retry Today's Quiz
-          </button>
-        </motion.div>
-      </div>
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel p-8 text-center space-y-4">
+        <p className="text-5xl font-bold text-primary">{pct}%</p>
+        <p className="text-lg text-foreground font-medium">
+          You got {score.correct} out of {score.total} correct
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {pct >= 80 ? "Excellent work! 🎉" : pct >= 50 ? "Good effort! Keep studying 💪" : "Keep practicing! 📚"}
+        </p>
+        <p className="text-xs text-primary font-medium">+{score.correct * 10} XP earned!</p>
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
+          <Calendar size={14} />
+          <span>Come back tomorrow for new questions</span>
+        </div>
+        <button onClick={restart} className="mt-4 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+          Retry Today's Quiz
+        </button>
+      </motion.div>
     );
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-8">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Daily Quiz</h1>
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mt-1">
-            <Calendar size={14} />
-            <span>{today}</span>
-          </div>
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Calendar size={14} />
+          <span>{today}</span>
         </div>
         <div className="glass-panel px-4 py-2 text-sm font-mono flex items-center gap-3">
           <span className="text-muted-foreground text-xs">{qIndex + 1}/{questions.length}</span>
@@ -193,7 +200,7 @@ export default function Quiz() {
         <motion.div
           className="h-full bg-primary rounded-full"
           initial={{ width: 0 }}
-          animate={{ width: `${((qIndex) / questions.length) * 100}%` }}
+          animate={{ width: `${(qIndex / questions.length) * 100}%` }}
           transition={{ duration: 0.3 }}
         />
       </div>
@@ -208,7 +215,7 @@ export default function Quiz() {
         >
           <div className="space-y-3">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
-              {typeLabels[current.type]}
+              {current.typeLabel}
             </span>
             <p className="text-lg font-medium text-foreground">{current.question}</p>
           </div>
@@ -228,10 +235,10 @@ export default function Quiz() {
                   disabled={answered}
                   className={`text-left px-4 py-3 rounded-lg border border-transparent text-sm font-medium transition-all ${style}`}
                 >
-                  <div className="flex items-center justify-between">
-                    {opt}
-                    {answered && isAnswer && <CheckCircle size={18} />}
-                    {answered && isThis && !isCorrect && <XCircle size={18} />}
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{opt}</span>
+                    {answered && isAnswer && <CheckCircle size={18} className="shrink-0" />}
+                    {answered && isThis && !isCorrect && <XCircle size={18} className="shrink-0" />}
                   </div>
                 </button>
               );
@@ -250,6 +257,44 @@ export default function Quiz() {
           )}
         </motion.div>
       </AnimatePresence>
+    </div>
+  );
+}
+
+export default function Quiz() {
+  const [system, setSystem] = useState<System>("skeletal");
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-foreground">Daily Quiz</h1>
+
+        {/* System tabs */}
+        <div className="flex gap-2 p-1 rounded-xl bg-secondary/50">
+          <button
+            onClick={() => setSystem("skeletal")}
+            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+              system === "skeletal"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            🦴 Skeletal System
+          </button>
+          <button
+            onClick={() => setSystem("muscular")}
+            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+              system === "muscular"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            💪 Muscular System
+          </button>
+        </div>
+      </div>
+
+      <QuizEngine key={system} system={system} />
     </div>
   );
 }
