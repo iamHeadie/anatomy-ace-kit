@@ -46,6 +46,8 @@ interface MuscleOverlayProps {
   onHoverMuscle: (id: string | null) => void;
   onClearSelection: () => void;
   onOpenDrawer: () => void;
+  /** When true the muscles are the only system visible — use higher default opacity */
+  standalone?: boolean;
 }
 
 // ── Per-muscle material entry ─────────────────────────────────────────────
@@ -110,6 +112,7 @@ export function MuscleOverlay({
   onHoverMuscle,
   onClearSelection,
   onOpenDrawer,
+  standalone = false,
 }: MuscleOverlayProps) {
   // Map: muscleId → { mat, originalColor }
   const matsRef = useRef<Map<string, MuscleMatEntry>>(new Map());
@@ -125,8 +128,11 @@ export function MuscleOverlay({
 
   // ── Per-frame visual transitions (single pass over all muscles) ──────────
   useFrame(() => {
-    const hasSelection = selectedMuscle !== null;
-    const selectedId   = selectedMuscle?.id ?? null;
+    const hasSelection  = selectedMuscle !== null;
+    const selectedId    = selectedMuscle?.id ?? null;
+    // Standalone mode: muscles are fully opaque so they read clearly without
+    // the skeleton behind them; overlay mode keeps the semi-transparent look.
+    const defaultOpacity = standalone ? 0.88 : 0.55;
 
     matsRef.current.forEach(({ mat, originalColor }, muscleId) => {
       const isSelected = hasSelection && muscleId === selectedId;
@@ -138,30 +144,30 @@ export function MuscleOverlay({
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 1.8, 0.35);
         mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 0.92, 0.35);
         mat.transparent = true;
-        mat.depthWrite  = false;
+        mat.depthWrite  = standalone;
       } else if (isHovered) {
         mat.color.lerp(HOVER_COLOR, 0.12);
         mat.emissive.lerp(HOVER_EMISSIVE, 0.12);
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.5, 0.12);
-        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 0.78, 0.12);
+        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 0.92, 0.12);
         mat.transparent = true;
-        mat.depthWrite  = false;
+        mat.depthWrite  = standalone;
       } else if (hasSelection) {
         // Ghost out everything else when a muscle is selected
         mat.color.lerp(originalColor.clone().multiplyScalar(0.3), 0.05);
         mat.emissive.lerp(BLACK, 0.05);
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.05);
-        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 0.07, 0.04);
+        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, standalone ? 0.15 : 0.07, 0.04);
         mat.transparent = true;
         mat.depthWrite  = false;
       } else {
-        // Default: semi-transparent muscle red
+        // Default: solid in standalone, semi-transparent as overlay
         mat.color.lerp(originalColor, 0.06);
         mat.emissive.lerp(BLACK, 0.06);
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.06);
-        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, 0.55, 0.06);
-        mat.transparent = true;
-        mat.depthWrite  = false;
+        mat.opacity           = THREE.MathUtils.lerp(mat.opacity, defaultOpacity, 0.06);
+        mat.transparent = !standalone;
+        mat.depthWrite  = standalone;
       }
       mat.needsUpdate = true;
     });
@@ -181,6 +187,7 @@ export function MuscleOverlay({
           onSelect={() => onSelectMuscle(muscle)}
           onHover={(h) => onHoverMuscle(h ? muscle.id : null)}
           onClearSelection={onClearSelection}
+          standalone={standalone}
         />
       ))}
       {selectedMuscle && (
@@ -198,6 +205,7 @@ function MuscleMesh({
   onSelect,
   onHover,
   onClearSelection,
+  standalone = false,
 }: {
   muscle: MusclePart;
   sphereGeom: THREE.SphereGeometry;
@@ -205,6 +213,7 @@ function MuscleMesh({
   onSelect: () => void;
   onHover: (h: boolean) => void;
   onClearSelection: () => void;
+  standalone?: boolean;
 }) {
   return (
     <mesh
@@ -220,11 +229,11 @@ function MuscleMesh({
       <meshStandardMaterial
         ref={(mat) => onRegisterMat(muscle.id, muscle.color, mat)}
         color={muscle.color}
-        transparent
-        opacity={0.55}
+        transparent={!standalone}
+        opacity={standalone ? 0.88 : 0.55}
         roughness={0.85}
         metalness={0.0}
-        depthWrite={false}
+        depthWrite={standalone}
       />
     </mesh>
   );

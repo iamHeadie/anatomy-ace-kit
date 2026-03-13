@@ -4,10 +4,22 @@ import { ContextPanel } from "@/components/anatomy/ContextPanel";
 import { PartsList } from "@/components/anatomy/PartsList";
 import type { BonePart } from "@/data/skeletalSystem";
 import type { MusclePart } from "@/data/muscularSystem";
-import { List, X, Eye, EyeOff } from "lucide-react";
+import { List, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type ActiveSystem = "skeletal" | "muscular";
 
 export default function AnatomyViewer() {
+  // ── System selector ──────────────────────────────────────────────────────
+  const [activeSystem, setActiveSystem] = useState<ActiveSystem>("skeletal");
+
   // ── Bone state ──────────────────────────────────────────────────────────
   const [selectedBone, setSelectedBone] = useState<BonePart | null>(null);
   const [hoveredBone, setHoveredBone]   = useState<string | null>(null);
@@ -15,20 +27,17 @@ export default function AnatomyViewer() {
   // ── Muscle state ────────────────────────────────────────────────────────
   const [selectedMuscle, setSelectedMuscle] = useState<MusclePart | null>(null);
   const [hoveredMuscle, setHoveredMuscle]   = useState<string | null>(null);
-  const [showMuscles, setShowMuscles]       = useState(true); // both systems on by default
 
   // ── List panel ──────────────────────────────────────────────────────────
-  const [showList, setShowList]   = useState(false);
-  const [listMode, setListMode]   = useState<"bones" | "muscles">("bones");
+  const [showList, setShowList] = useState(false);
+  const listMode = activeSystem === "muscular" ? "muscles" : "bones";
 
   // ── Muscle-priority lock ─────────────────────────────────────────────────
-  // When a muscle is clicked via R3F events, this ref prevents SkeletonViewer's
-  // DOM-level pointerup from overwriting the muscle selection with a bone.
   const muscleJustSelectedRef = useRef(false);
 
   // ── Selection handlers ──────────────────────────────────────────────────
   const handleSelectBone = useCallback((bone: BonePart) => {
-    if (muscleJustSelectedRef.current) return; // muscle click took priority
+    if (muscleJustSelectedRef.current) return;
     setSelectedMuscle(null);
     setSelectedBone(bone);
   }, []);
@@ -37,7 +46,6 @@ export default function AnatomyViewer() {
     muscleJustSelectedRef.current = true;
     setSelectedBone(null);
     setSelectedMuscle(muscle);
-    // Reset flag after one event loop turn so future bone clicks work normally
     setTimeout(() => { muscleJustSelectedRef.current = false; }, 80);
   }, []);
 
@@ -47,12 +55,17 @@ export default function AnatomyViewer() {
     muscleJustSelectedRef.current = false;
   }, []);
 
-  // Unified "selected part" for ContextPanel (bone or muscle, whichever is set)
+  const handleSystemChange = useCallback((value: string) => {
+    setActiveSystem(value as ActiveSystem);
+    handleClearSelection();
+  }, [handleClearSelection]);
+
+  // Unified "selected part" for ContextPanel
   const selectedPart = selectedBone ?? selectedMuscle;
 
   return (
     <div className="relative w-full h-[calc(100vh-3.5rem)] bg-background overflow-hidden">
-      {/* 3D scene — skeletal + muscular overlay share the same canvas */}
+      {/* 3D scene */}
       <AnatomyScene
         selectedPart={selectedBone}
         hoveredPart={hoveredBone}
@@ -61,7 +74,7 @@ export default function AnatomyViewer() {
         onClearSelection={handleClearSelection}
         onOpenDrawer={() => {}}
         drawerOpen={!!selectedPart}
-        showMuscles={showMuscles}
+        activeSystem={activeSystem}
         selectedMuscle={selectedMuscle}
         hoveredMuscle={hoveredMuscle}
         onSelectMuscle={handleSelectMuscle}
@@ -76,49 +89,25 @@ export default function AnatomyViewer() {
           className="glass-panel p-2.5 rounded-lg hover:bg-secondary transition-colors"
           title={showList ? "Hide list" : "Show list"}
         >
-          {showList ? <X size={18} className="text-foreground" /> : <List size={18} className="text-foreground" />}
+          {showList
+            ? <X size={18} className="text-foreground" />
+            : <List size={18} className="text-foreground" />}
         </button>
 
-        {/* Muscle overlay toggle */}
-        <button
-          onClick={() => setShowMuscles((v) => !v)}
-          className={`glass-panel p-2.5 rounded-lg transition-colors ${
-            showMuscles
-              ? "bg-red-900/40 border border-red-500/40 hover:bg-red-900/60"
-              : "hover:bg-secondary"
-          }`}
-          title={showMuscles ? "Hide muscular system" : "Show muscular system"}
-        >
-          {showMuscles
-            ? <Eye size={18} className="text-red-400" />
-            : <EyeOff size={18} className="text-muted-foreground" />}
-        </button>
-
-        {/* System mode chip when list is open */}
-        {showList && (
-          <div className="glass-panel flex rounded-lg overflow-hidden">
-            <button
-              onClick={() => setListMode("bones")}
-              className={`px-3 py-2 text-xs font-medium transition-colors ${
-                listMode === "bones"
-                  ? "bg-primary/20 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`}
-            >
-              🦴 Bones
-            </button>
-            <button
-              onClick={() => setListMode("muscles")}
-              className={`px-3 py-2 text-xs font-medium transition-colors ${
-                listMode === "muscles"
-                  ? "bg-red-700/30 text-red-400"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`}
-            >
-              💪 Muscles
-            </button>
-          </div>
-        )}
+        {/* System selector dropdown */}
+        <Select value={activeSystem} onValueChange={handleSystemChange}>
+          <SelectTrigger className="glass-panel h-9 w-44 border-white/10 bg-background/60 text-sm font-medium backdrop-blur-md focus:ring-0 focus:ring-offset-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-background/90 backdrop-blur-md border-white/10">
+            <SelectItem value="skeletal" className="text-sm cursor-pointer">
+              🦴 Skeletal System
+            </SelectItem>
+            <SelectItem value="muscular" className="text-sm cursor-pointer">
+              💪 Muscular System
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* ── Sliding parts list panel ──────────────────────────────────── */}

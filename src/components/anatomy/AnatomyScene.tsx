@@ -26,8 +26,8 @@ interface AnatomySceneProps {
   onClearSelection: () => void;
   onOpenDrawer: () => void;
   drawerOpen: boolean;
-  // Muscular system
-  showMuscles: boolean;
+  // System selector: "skeletal" shows skeleton only; "muscular" shows muscles only
+  activeSystem: "skeletal" | "muscular";
   selectedMuscle: MusclePart | null;
   hoveredMuscle: string | null;
   onSelectMuscle: (muscle: MusclePart) => void;
@@ -104,7 +104,7 @@ function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
 export function AnatomyScene({
   selectedPart, hoveredPart, onSelectPart, onHoverPart,
   onClearSelection, onOpenDrawer, drawerOpen,
-  showMuscles, selectedMuscle, hoveredMuscle, onSelectMuscle, onHoverMuscle,
+  activeSystem, selectedMuscle, hoveredMuscle, onSelectMuscle, onHoverMuscle,
 }: AnatomySceneProps) {
   return (
     <div className="w-full h-full" style={{ position: "relative" }}>
@@ -132,18 +132,20 @@ export function AnatomyScene({
           <pointLight position={[0, 2, 3]} intensity={0.35} color="#14b8a6" distance={12} decay={2} />
 
           <Bounds fit clip observe margin={1.4}>
-            {/* ── Skeletal system ─────────────────────────────────────── */}
-            <SkeletonViewer
-              selectedPart={selectedPart}
-              hoveredPart={hoveredPart}
-              onSelectPart={onSelectPart}
-              onHoverPart={onHoverPart}
-              onClearSelection={onClearSelection}
-              onOpenDrawer={onOpenDrawer}
-            />
+            {/* ── Skeletal system — only when activeSystem is "skeletal" ── */}
+            {activeSystem === "skeletal" && (
+              <SkeletonViewer
+                selectedPart={selectedPart}
+                hoveredPart={hoveredPart}
+                onSelectPart={onSelectPart}
+                onHoverPart={onHoverPart}
+                onClearSelection={onClearSelection}
+                onOpenDrawer={onOpenDrawer}
+              />
+            )}
 
-            {/* ── Muscular system overlay ──────────────────────────────── */}
-            {showMuscles && (
+            {/* ── Muscular system — only when activeSystem is "muscular" ── */}
+            {activeSystem === "muscular" && (
               <MuscleOverlay
                 muscularParts={muscularParts}
                 selectedMuscle={selectedMuscle}
@@ -152,6 +154,7 @@ export function AnatomyScene({
                 onHoverMuscle={onHoverMuscle}
                 onClearSelection={onClearSelection}
                 onOpenDrawer={onOpenDrawer}
+                standalone
               />
             )}
 
