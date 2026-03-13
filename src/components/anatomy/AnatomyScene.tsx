@@ -1,11 +1,8 @@
 /**
- * AnatomyScene.tsx — 3D viewer hosting the Skeletal and Muscular systems
+ * AnatomyScene.tsx — 3D viewer hosting the Skeletal system
  *
- * Both systems share the same Three.js scene.  OrbitControls moves the camera
- * (not individual objects), so all meshes rotate together automatically — no
- * explicit wrapper group is needed for rotation sync.
- *
- * showMuscles=true (default) renders MuscleOverlay alongside SkeletonViewer.
+ * Renders the skeleton GLB via SkeletonViewer inside a shared Three.js scene.
+ * OrbitControls moves the camera, so all meshes rotate together automatically.
  */
 
 import { Canvas, useThree } from "@react-three/fiber";
@@ -13,10 +10,8 @@ import { OrbitControls, Bounds, useBounds, ContactShadows } from "@react-three/d
 import { Suspense, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { SkeletonViewer } from "./SkeletonViewer";
-import { MuscleOverlay } from "./MuscleOverlay";
 import { BoneModel } from "./BoneModel";
 import { skeletalParts, type BonePart } from "@/data/skeletalSystem";
-import { muscularParts, type MusclePart } from "@/data/muscularSystem";
 
 interface AnatomySceneProps {
   selectedPart: BonePart | null;
@@ -26,12 +21,6 @@ interface AnatomySceneProps {
   onClearSelection: () => void;
   onOpenDrawer: () => void;
   drawerOpen: boolean;
-  // System selector: "skeletal" shows skeleton only; "muscular" shows muscles only
-  activeSystem: "skeletal" | "muscular";
-  selectedMuscle: MusclePart | null;
-  hoveredMuscle: string | null;
-  onSelectMuscle: (muscle: MusclePart) => void;
-  onHoverMuscle: (id: string | null) => void;
 }
 
 const SLATE_BG = new THREE.Color("#171720");
@@ -104,7 +93,6 @@ function AutoFramer({ selectedPart }: { selectedPart: BonePart | null }) {
 export function AnatomyScene({
   selectedPart, hoveredPart, onSelectPart, onHoverPart,
   onClearSelection, onOpenDrawer, drawerOpen,
-  activeSystem, selectedMuscle, hoveredMuscle, onSelectMuscle, onHoverMuscle,
 }: AnatomySceneProps) {
   return (
     <div className="w-full h-full" style={{ position: "relative" }}>
@@ -132,32 +120,14 @@ export function AnatomyScene({
           <pointLight position={[0, 2, 3]} intensity={0.35} color="#14b8a6" distance={12} decay={2} />
 
           <Bounds fit clip observe margin={1.4}>
-            {/* ── Skeletal system — only when activeSystem is "skeletal" ── */}
-            {activeSystem === "skeletal" && (
-              <SkeletonViewer
-                selectedPart={selectedPart}
-                hoveredPart={hoveredPart}
-                onSelectPart={onSelectPart}
-                onHoverPart={onHoverPart}
-                onClearSelection={onClearSelection}
-                onOpenDrawer={onOpenDrawer}
-              />
-            )}
-
-            {/* ── Muscular system — only when activeSystem is "muscular" ── */}
-            {activeSystem === "muscular" && (
-              <MuscleOverlay
-                muscularParts={muscularParts}
-                selectedMuscle={selectedMuscle}
-                hoveredMuscle={hoveredMuscle}
-                onSelectMuscle={onSelectMuscle}
-                onHoverMuscle={onHoverMuscle}
-                onClearSelection={onClearSelection}
-                onOpenDrawer={onOpenDrawer}
-                standalone
-              />
-            )}
-
+            <SkeletonViewer
+              selectedPart={selectedPart}
+              hoveredPart={hoveredPart}
+              onSelectPart={onSelectPart}
+              onHoverPart={onHoverPart}
+              onClearSelection={onClearSelection}
+              onOpenDrawer={onOpenDrawer}
+            />
             <AutoFramer selectedPart={selectedPart} />
           </Bounds>
 
